@@ -4,6 +4,10 @@
   "engines": {
     "vscode": "^1.47.3"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/your-repository.git"
+  },
   "main": "./ext.js",
   "contributes": {
     "configuration": [
