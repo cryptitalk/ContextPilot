@@ -1,4 +1,5 @@
 const vscode = require('vscode');
+const axios = require('axios');
 
 let panel;
 
@@ -89,7 +90,10 @@ function activate(context) {
                 break;
               case 'changePage':
                 currentPage = message.newPage;
-                updateWebview(currentPage=currentPage);
+                updateWebview(currentPage = currentPage);
+                break;
+              case 'submitInput':
+                handleSubmitInput(message.inputText);
                 break;
             }
           },
@@ -106,6 +110,54 @@ function activate(context) {
   });
 
   context.subscriptions.push(addDisposable, getDisposable);
+}
+
+
+async function handleSubmitInput(inputText) {
+  // Retrieve the current tempContextCode
+  const tempContextRaw = vscode.workspace.getConfiguration().get('tempContextCode');
+  let tempContext = tempContextRaw ? JSON.parse(tempContextRaw) : [];
+
+  // Combine the context and the input text to form the prompt
+  const prompt = tempContext.map(item => `${item.context}: ${item.definition}`).join('\n') + '\n' + inputText;
+
+  try {
+    // Send the prompt to ChatGPT API
+    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+      model: "gpt-4-1106-preview", // Replace with the correct chat model identifier
+      messages: [{
+        role: "system",
+        content: "I am a code writer."
+      }, {
+        role: "user",
+        content: prompt
+      }],
+      // Additional parameters as needed
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer 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' // Replace with your actual API key
+      }
+    });
+
+    const chatGptResponse = response.data.choices[0].message.content.trim();
+
+    // Display the response or handle it as needed
+    vscode.window.showInformationMessage(`ChatGPT Response: ${chatGptResponse}`);
+  } catch (err) {
+    console.error('Error communicating with ChatGPT API:', err.message);
+    if (err.response) {
+      console.error('Response Status:', err.response.status);
+      console.error('Response Status Text:', err.response.statusText);
+      console.error('Response Data:', err.response.data ? JSON.stringify(err.response.data).substring(0, 500) : 'No data');
+    } else {
+      console.error('No response received from the server');
+    }
+    vscode.window.showErrorMessage('Failed to get response from ChatGPT');
+  } finally {
+    // Clear the tempContextCode after the API call
+    await vscode.workspace.getConfiguration().update('tempContextCode', null, true);
+  }
 }
 
 function handleDelete(index) {
@@ -195,7 +247,7 @@ function handleSaveDefinition(index, newDefinition) {
   }
 
   // Update the definition of the item at the specified index
-  currentContext[index].definition = newDefinition;
+  currentContext[currentPage * 5 + index].definition = newDefinition;
 
   // Update the contextCode with the modified array
   vscode.workspace.getConfiguration().update('contextCode', JSON.stringify(currentContext), vscode.ConfigurationTarget.Global)
@@ -225,7 +277,7 @@ function updateWebview(currentPage = 1) {
   }
 
   // Generate and display the webview content with the loaded context data
-  const webviewContent = getWebviewContent(contextData, currentPage=currentPage);
+  const webviewContent = getWebviewContent(contextData, currentPage = currentPage);
   panel.webview.html = webviewContent;
 }
 
@@ -274,6 +326,12 @@ function getWebviewContent(contextData, currentPage = 1) {
     </div>
   `;
 
+  let inputHtml = `<div class="input-container">
+                     <input type="text" id="inputBox" placeholder="Enter text">
+                     <button id="submitButton" onclick="submitInput()">Submit</button>
+                   </div>`;
+
+
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -282,9 +340,17 @@ function getWebviewContent(contextData, currentPage = 1) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Context Code</title>
       <style>
+      .content {
+        width: 70%;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
       .grid-container {
+        flex-grow: 1;
+        overflow: auto;
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        grid-template-columns: repeat(5, 1fr); /* 5 equal columns */
         gap: 10px;
         padding: 10px;
       }
@@ -295,7 +361,7 @@ function getWebviewContent(contextData, currentPage = 1) {
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         padding: 15px;
         position: relative;
-        height: 50vh; /* Set the height to 50% of the viewport height */
+        height: 100%;
         overflow: auto; /* Optional: Add a scrollbar if the content overflows */
       }
       .delete-button {
@@ -309,7 +375,25 @@ function getWebviewContent(contextData, currentPage = 1) {
         font-weight: bold;
         border-radius: 50%;
       }
-      /* Your existing styles */
+      .pagination-controls {
+        text-align: center;
+        padding: 10px;
+      }
+      .input-container {
+        width: 100%; /* Full width */
+        height: 20%;
+        padding: 10px;
+        box-sizing: border-box;
+        background-color: #f0f0f0;
+      }
+      #inputBox {
+        width: 80%; /* Adjust width as per your need */
+        height: 90%;
+        padding: 8px;
+      }
+      #submitButton {
+        padding: 8px 15px;
+      }
       </style>
       <script>
         const vscode = acquireVsCodeApi();
@@ -362,12 +446,23 @@ function getWebviewContent(contextData, currentPage = 1) {
       </script>
     </head>
     <body>
-      <div class="grid-container">
-        ${gridHtml}
+      <div class="content">
+        <div class="grid-container">
+          ${gridHtml}
+        </div>
+        ${paginationHtml}
+        <div class="input-container">
+          ${inputHtml}
+        </div>
       </div>
-      ${paginationHtml}
       <script>
-        // ... existing JavaScript functions ...
+        function submitInput() {
+          const inputText = document.getElementById('inputBox').value;
+          vscode.postMessage({
+            command: 'submitInput',
+            inputText: inputText
+          });
+        }
         // Adding Event Listeners to Buttons
         document.getElementById('prevButton').addEventListener('click', function() {
           changePage(${currentPage}, ${totalPages}, -1);
