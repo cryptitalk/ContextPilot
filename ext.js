@@ -120,7 +120,12 @@ async function handleSubmitInput(inputText) {
 
   // Combine the context and the input text to form the prompt
   const prompt = tempContext.map(item => `${item.context}: ${item.definition}`).join('\n') + '\n' + inputText;
-
+  if (panel && panel.webview) {
+    panel.webview.postMessage({
+      command: 'updateChatGptOutput',
+      htmlContent: '<div class="loading"><img src="https://storage.googleapis.com/cryptitalk/loading.gif" alt="Loading..."></div>'
+    });
+  }
   try {
     // Send the prompt to ChatGPT API
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -142,8 +147,12 @@ async function handleSubmitInput(inputText) {
 
     const chatGptResponse = response.data.choices[0].message.content.trim();
 
-    // Display the response or handle it as needed
-    vscode.window.showInformationMessage(`ChatGPT Response: ${chatGptResponse}`);
+    if (panel && panel.webview) {
+      panel.webview.postMessage({
+        command: 'updateChatGptOutput',
+        htmlContent: `<div>${chatGptResponse}</div>`
+      });
+    }
   } catch (err) {
     console.error('Error communicating with ChatGPT API:', err.message);
     if (err.response) {
@@ -331,6 +340,11 @@ function getWebviewContent(contextData, currentPage = 1) {
                      <button id="submitButton" onclick="submitInput()">Submit</button>
                    </div>`;
 
+  let rightPanelHtml = `<div class="right-panel">
+                   <h3>ChatGPT Responses</h3>
+                   <div id="chatGptOutput">Responses will appear here...</div>
+                 </div>`;
+
 
   return `
     <!DOCTYPE html>
@@ -341,10 +355,15 @@ function getWebviewContent(contextData, currentPage = 1) {
     <title>Context Code</title>
       <style>
       .content {
+        display: flex;
+        flex-direction: row; /* Change to row layout */
+        height: 100vh;
+      }
+      .main-content {
         width: 70%;
         display: flex;
         flex-direction: column;
-        height: 100vh;
+        /* ... styles for main content ... */
       }
       .grid-container {
         flex-grow: 1;
@@ -353,6 +372,13 @@ function getWebviewContent(contextData, currentPage = 1) {
         grid-template-columns: repeat(5, 1fr); /* 5 equal columns */
         gap: 10px;
         padding: 10px;
+      }
+      .right-panel {
+        width: 30%; /* Width for the right panel */
+        background-color: #f4f4f4; /* Background color */
+        padding: 10px;
+        overflow: auto; /* For scrolling */
+        border-left: 1px solid #ddd; /* Divider line */
       }
       .grid-item {
         border: 1px solid #ddd;
@@ -393,6 +419,16 @@ function getWebviewContent(contextData, currentPage = 1) {
       }
       #submitButton {
         padding: 8px 15px;
+      }
+      .loading {
+        text-align: center;
+        padding: 20px;
+      }
+      .loading img {
+        width: auto; /* Adjust width as needed, 'auto' keeps the aspect ratio */
+        height: 50px; /* Example height, adjust as needed */
+        display: block; /* Centers the image in the div */
+        margin: 0 auto; /* Centers the image horizontally */
       }
       </style>
       <script>
@@ -447,15 +483,30 @@ function getWebviewContent(contextData, currentPage = 1) {
     </head>
     <body>
       <div class="content">
-        <div class="grid-container">
-          ${gridHtml}
+        <div class="main-content">
+          <div class="grid-container">
+            ${gridHtml}
+          </div>
+          ${paginationHtml}
+          <div class="input-container">
+            ${inputHtml}
+          </div>
         </div>
-        ${paginationHtml}
-        <div class="input-container">
-          ${inputHtml}
-        </div>
+        ${rightPanelHtml}
       </div>
       <script>
+        window.addEventListener('message', event => {
+          const message = event.data; // The JSON data our extension sent
+          switch (message.command) {
+            case 'updateChatGptOutput':
+              updateChatGptOutput(message.htmlContent);
+              break;
+          }
+        });
+        function updateChatGptOutput(htmlContent) {
+          const outputDiv = document.getElementById('chatGptOutput');
+          outputDiv.innerHTML = htmlContent;
+        }
         function submitInput() {
           const inputText = document.getElementById('inputBox').value;
           vscode.postMessage({
