@@ -1,8 +1,23 @@
 const vscode = require('vscode');
 const axios = require('axios');
+const showdown = require('showdown');
 
 let panel;
 let currentPage = 1;
+
+function formatMarkdown(markdownText, isCode = false) {
+  let formattedMarkdown
+  // Convert Markdown to HTML
+  if (isCode) {
+    formattedMarkdown = "```\n" + markdownText + "\n```";
+  } else {
+    formattedMarkdown = markdownText
+  }
+  const converter = new showdown.Converter();
+  const html = converter.makeHtml(formattedMarkdown);
+  // Still escape the generated HTML to prevent any potential XSS
+  return html;
+}
 
 function activate(context) {
   let addDisposable = vscode.commands.registerCommand('extension.addContext', () => {
@@ -171,9 +186,10 @@ async function handleSubmitInput(inputText, context) {
     const chatGptResponse = response.data.choices[0].message.content.trim();
 
     if (panel && panel.webview) {
+      md = formatMarkdown(chatGptResponse, false);
       panel.webview.postMessage({
         command: 'updateChatGptOutput',
-        htmlContent: `<div>${chatGptResponse}</div>`
+        htmlContent: `<div>${md}</div>`
       });
     }
   } catch (err) {
@@ -316,14 +332,8 @@ function updateWebview(currentPage = 1) {
 function getWebviewContent(contextData, currentPage = 1) {
   const itemsPerPage = 5; // Number of items per page
   const totalPages = Math.ceil(contextData.length / itemsPerPage);
-  function escapeHtml(unsafe) {
-    return unsafe
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
+
+
 
   // Calculate the slice of data for the current page
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -332,8 +342,8 @@ function getWebviewContent(contextData, currentPage = 1) {
 
 
   let gridHtml = pageData.map((item, index) => {
-    const safeContext = escapeHtml(item.context);
-    const safeDefinition = escapeHtml(item.definition);
+    const safeContext = formatMarkdown(item.context, true);
+    const safeDefinition = formatMarkdown(item.definition, true);
 
     return `<div class="grid-item" data-index="${index}">
               <div class="delete-button" onclick="deleteItem(${index})">X</div>
@@ -365,7 +375,7 @@ function getWebviewContent(contextData, currentPage = 1) {
 
   let rightPanelHtml = `
                   <div class="right-panel">
-                    <h3>ChatGPT Responses</h3>
+                    <h3>AI Responses</h3>
                     <div id="chatGptOutput" style="white-space: pre-wrap;">Responses will appear here...</div>
                   </div>
                  `;
@@ -400,6 +410,7 @@ function getWebviewContent(contextData, currentPage = 1) {
       }
       .right-panel {
         width: 30%; /* Width for the right panel */
+        color: #333;
         background-color: #f4f4f4; /* Background color */
         padding: 10px;
         overflow: auto; /* For scrolling */
@@ -408,6 +419,7 @@ function getWebviewContent(contextData, currentPage = 1) {
       .grid-item {
         border: 1px solid #ddd;
         border-radius: 4px;
+        color: #333;
         background-color: #fff;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         padding: 15px;
@@ -454,7 +466,7 @@ function getWebviewContent(contextData, currentPage = 1) {
         height: 50px; /* Example height, adjust as needed */
         display: block; /* Centers the image in the div */
         margin: 0 auto; /* Centers the image horizontally */
-      }
+      }     
       </style>
       <script>
         const vscode = acquireVsCodeApi();
