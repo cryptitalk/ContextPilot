@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const axios = require('axios');
 
 let panel;
+let currentPage = 1;
 
 function activate(context) {
   let addDisposable = vscode.commands.registerCommand('extension.addContext', () => {
@@ -111,12 +112,12 @@ function activate(context) {
   });
 
   let setKeyDisposable = vscode.commands.registerCommand('extension.setOpenAIKey', async () => {
-    const openAIKey = await vscode.window.showInputBox({ 
-      prompt: "Enter your OpenAI API key", 
+    const openAIKey = await vscode.window.showInputBox({
+      prompt: "Enter your OpenAI API key",
       placeHolder: "Type the OpenAI key here...",
       ignoreFocusOut: true
     });
-  
+
     if (openAIKey) {
       context.globalState.update('openAIKey', openAIKey);
       vscode.window.showInformationMessage('OpenAI key saved successfully!');
@@ -278,7 +279,7 @@ function handleSaveDefinition(index, newDefinition) {
   }
 
   // Update the definition of the item at the specified index
-  currentContext[currentPage * 5 + index].definition = newDefinition;
+  currentContext[(currentPage - 1) * 5 + index].definition = newDefinition;
 
   // Update the contextCode with the modified array
   vscode.workspace.getConfiguration().update('contextCode', JSON.stringify(currentContext), vscode.ConfigurationTarget.Global)
