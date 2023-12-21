@@ -64,6 +64,7 @@ function activate(context) {
           vscode.ViewColumn.One, // Editor column to show the new webview panel in.
           {
             enableScripts: true,
+            retainContextWhenHidden: true, // Add this line to retain the context
             sandboxOptions: {
               allowScripts: true
             }
@@ -314,7 +315,7 @@ function getWebviewContent(contextData, currentPage = 1) {
 
     return `<div class="grid-item" data-index="${index}">
               <div class="delete-button" onclick="deleteItem(${index})">X</div>
-              <div><strong>Context:</strong> ${safeContext}</div>
+              <div style="white-space: pre-wrap;"><strong>Context:</strong> ${safeContext}</div>
               <div>
                 <strong>Definition:</strong>
                 <span class="definition-text">${safeDefinition}</span>
