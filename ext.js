@@ -340,10 +340,12 @@ function getWebviewContent(contextData, currentPage = 1) {
                      <button id="submitButton" onclick="submitInput()">Submit</button>
                    </div>`;
 
-  let rightPanelHtml = `<div class="right-panel">
-                   <h3>ChatGPT Responses</h3>
-                   <div id="chatGptOutput">Responses will appear here...</div>
-                 </div>`;
+  let rightPanelHtml = `
+                  <div class="right-panel">
+                    <h3>ChatGPT Responses</h3>
+                    <div id="chatGptOutput" style="white-space: pre-wrap;">Responses will appear here...</div>
+                  </div>
+                 `;
 
 
   return `
