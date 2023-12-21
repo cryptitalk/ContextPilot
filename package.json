@@ -4,6 +4,7 @@
   "engines": {
     "vscode": "^1.47.3"
   },
+  "icon": "resources/favicon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/your-username/your-repository.git"
