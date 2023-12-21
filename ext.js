@@ -94,7 +94,7 @@ function activate(context) {
                 updateWebview(currentPage = currentPage);
                 break;
               case 'submitInput':
-                handleSubmitInput(message.inputText);
+                handleSubmitInput(message.inputText, context);
                 break;
             }
           },
@@ -110,11 +110,26 @@ function activate(context) {
     }
   });
 
-  context.subscriptions.push(addDisposable, getDisposable);
+  let setKeyDisposable = vscode.commands.registerCommand('extension.setOpenAIKey', async () => {
+    const openAIKey = await vscode.window.showInputBox({ 
+      prompt: "Enter your OpenAI API key", 
+      placeHolder: "Type the OpenAI key here...",
+      ignoreFocusOut: true
+    });
+  
+    if (openAIKey) {
+      context.globalState.update('openAIKey', openAIKey);
+      vscode.window.showInformationMessage('OpenAI key saved successfully!');
+    } else {
+      vscode.window.showErrorMessage('OpenAI key was not saved.');
+    }
+  });
+
+  context.subscriptions.push(addDisposable, getDisposable, setKeyDisposable);
 }
 
 
-async function handleSubmitInput(inputText) {
+async function handleSubmitInput(inputText, context) {
   // Retrieve the current tempContextCode
   const tempContextRaw = vscode.workspace.getConfiguration().get('tempContextCode');
   let tempContext = tempContextRaw ? JSON.parse(tempContextRaw) : [];
@@ -126,6 +141,12 @@ async function handleSubmitInput(inputText) {
       command: 'updateChatGptOutput',
       htmlContent: '<div class="loading"><img src="https://storage.googleapis.com/cryptitalk/loading.gif" alt="Loading..."></div>'
     });
+  }
+  // Retrieve OpenAI API key from global state
+  const openAIKey = context.globalState.get('openAIKey');
+  if (!openAIKey) {
+    vscode.window.showErrorMessage('OpenAI API key is not set. Please set it using "Set OpenAI Key" command.');
+    return;
   }
   try {
     // Send the prompt to ChatGPT API
@@ -142,7 +163,7 @@ async function handleSubmitInput(inputText) {
     }, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer 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' // Replace with your actual API key
+        'Authorization': `Bearer ${openAIKey}` // Use the retrieved OpenAI key here
       }
     });
 

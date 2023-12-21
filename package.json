@@ -36,6 +36,10 @@
       {
         "command": "extension.getContext",
         "title": "Get Context"
+      },
+      {
+        "command": "extension.setOpenAIKey",
+        "title": "Set OpenAI Key"
       }
     ],
     "menus": {
@@ -48,6 +52,9 @@
       "contextpilot.submenu": [
         {
           "command": "extension.addContext"
+        },
+        {
+          "command": "extension.setOpenAIKey"
         },
         {
           "command": "extension.getContext"
