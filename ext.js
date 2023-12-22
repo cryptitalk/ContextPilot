@@ -94,16 +94,16 @@ function activate(context) {
           message => {
             switch (message.command) {
               case 'delete':
-                handleDelete(message.index);
+                handleDelete(message.context);
                 break;
               case 'select':
-                handleSelect(message.index, true);
+                handleSelect((currentPage - 1) * 5 + message.index, true);
                 break;
               case 'unselect':
-                handleSelect(message.index, false);
+                handleSelect((currentPage - 1) * 5 + message.index, false);
                 break;
               case 'saveDefinition':
-                handleSaveDefinition(message.index, message.newDefinition);
+                handleSaveDefinition((currentPage - 1) * 5 + message.index, message.newDefinition);
                 break;
               case 'changePage':
                 currentPage = message.newPage;
@@ -111,6 +111,12 @@ function activate(context) {
                 break;
               case 'submitInput':
                 handleSubmitInput(message.inputText, context);
+                break;
+              case 'showContext':
+                handleShowContext();
+                break;
+              case 'clearContext':
+                handleClearContext();
                 break;
             }
           },
@@ -142,6 +148,41 @@ function activate(context) {
   });
 
   context.subscriptions.push(addDisposable, getDisposable, setKeyDisposable);
+}
+
+
+function handleShowContext() {
+  // Retrieve the current contextData
+  const contextDataRaw = vscode.workspace.getConfiguration().get('tempContextCode');
+  if (contextDataRaw) {
+    // Display the current contextData 
+    panel.webview.postMessage({
+      command: 'updateChatGptOutput',
+      htmlContent: `<div>${formatMarkdown(contextDataRaw)}</div>`
+    });
+  } else {
+    panel.webview.postMessage({
+      command: 'updateChatGptOutput',
+      htmlContent: `<div>No context found.</div>`
+    });
+  }
+}
+
+function handleClearContext() {
+  // Update the contextCode with an empty array
+  vscode.workspace.getConfiguration().update('tempContextCode', JSON.stringify([]), vscode.ConfigurationTarget.Global)
+    .then(() => {
+      vscode.window.showInformationMessage('Context cleared');
+      if (panel && panel.webview) {
+        panel.webview.postMessage({
+          command: 'updateChatGptOutput',
+          htmlContent: `<div>Context cleared.</div>`
+        });
+      }
+    }, err => {
+      console.error('Error clearing contextCode:', err);
+      vscode.window.showErrorMessage('Failed to clear context');
+    });
 }
 
 
@@ -208,7 +249,10 @@ async function handleSubmitInput(inputText, context) {
   }
 }
 
-function handleDelete(index) {
+function handleDelete(contextText) {
+  // Decode the context text
+  contextText = decodeURIComponent(contextText);
+
   // Retrieve the current contextCode
   const currentContextRaw = vscode.workspace.getConfiguration().get('contextCode');
   let currentContext = [];
@@ -222,8 +266,11 @@ function handleDelete(index) {
     }
   }
 
-  // Delete the item at the specified index
-  currentContext.splice(index, 1);
+  // Find the item with the matching context and delete it
+  const index = currentContext.findIndex(item => item.context === contextText);
+  if (index !== -1) {
+    currentContext.splice(index, 1);
+  }
 
   // Update the contextCode with the new array
   vscode.workspace.getConfiguration().update('contextCode', JSON.stringify(currentContext), vscode.ConfigurationTarget.Global)
@@ -262,7 +309,7 @@ function handleSelect(index, isSelected) {
       vscode.window.showInformationMessage(`Selected Context: ${selectedItem.context}`);
     } else {
       // Remove from tempContextCode
-      tempContext = tempContext.filter(item => item !== selectedItem);
+      tempContext = tempContext.filter(item => item.context !== selectedItem.context);
       vscode.window.showInformationMessage(`Unselected Context: ${selectedItem.context}`);
     }
 
@@ -295,7 +342,7 @@ function handleSaveDefinition(index, newDefinition) {
   }
 
   // Update the definition of the item at the specified index
-  currentContext[(currentPage - 1) * 5 + index].definition = newDefinition;
+  currentContext[index].definition = newDefinition;
 
   // Update the contextCode with the modified array
   vscode.workspace.getConfiguration().update('contextCode', JSON.stringify(currentContext), vscode.ConfigurationTarget.Global)
@@ -345,8 +392,8 @@ function getWebviewContent(contextData, currentPage = 1) {
     const safeContext = formatMarkdown(item.context, true);
     const safeDefinition = formatMarkdown(item.definition, true);
 
-    return `<div class="grid-item" data-index="${index}">
-              <div class="delete-button" onclick="deleteItem(${index})">X</div>
+    return `<div class="grid-item" data-index="${index}" data-context="${encodeURIComponent(item.context)}">
+              <div class="delete-button" onclick="deleteItem(this)">X</div>
               <div style="white-space: pre-wrap;"><strong>Context:</strong> ${safeContext}</div>
               <div>
                 <strong>Definition:</strong>
@@ -369,9 +416,17 @@ function getWebviewContent(contextData, currentPage = 1) {
   `;
 
   let inputHtml = `<div class="input-container">
-                     <input type="text" id="inputBox" placeholder="Enter text">
-                     <button id="submitButton" onclick="submitInput()">Submit</button>
-                   </div>`;
+                    <input type="text" id="inputBox" placeholder="Enter text" 
+                           style="width: 100%; margin-bottom: 10px; box-sizing: border-box;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <button id="submitButton" onclick="submitInput()" 
+                                style="flex-grow: 1; margin-right: 5px;">Submit</button>
+                        <button id="showContextButton" onclick="showContext()" 
+                                style="flex-grow: 1; margin-right: 5px;">Show Context</button>
+                        <button id="clearContextButton" onclick="clearContext()" 
+                                style="flex-grow: 1;">Clear Context</button>
+                    </div>
+                  </div>`;
 
   let rightPanelHtml = `
                   <div class="right-panel">
@@ -471,19 +526,19 @@ function getWebviewContent(contextData, currentPage = 1) {
       <script>
         const vscode = acquireVsCodeApi();
 
-        function deleteItem(index) {
-          // Send a message to the extension to delete the item
+        function deleteItem(element) {
+          // Retrieve the context from the data-context attribute of the parent element
+          const contextText = element.parentNode.getAttribute('data-context');
+        
+          // Send a message to the extension to delete the item based on its context
           vscode.postMessage({
             command: 'delete',
-            index: index
+            context: contextText
           });
 
           // Remove the item from the webview
-          const itemToDelete = document.querySelector('.grid-item[data-index="' + index + '"]');
-          if (itemToDelete) {
-            itemToDelete.remove();
-          }
-        }
+          element.closest('.grid-item').remove();
+        }        
 
         function selectItem(index, isSelected) {
           vscode.postMessage({
@@ -549,6 +604,16 @@ function getWebviewContent(contextData, currentPage = 1) {
           vscode.postMessage({
             command: 'submitInput',
             inputText: inputText
+          });
+        }
+        function showContext() {
+          vscode.postMessage({
+            command: 'showContext'
+          });
+        }
+        function clearContext() {
+          vscode.postMessage({
+            command: 'clearContext'
           });
         }
         // Adding Event Listeners to Buttons
