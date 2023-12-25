@@ -154,11 +154,40 @@ function activate(context) {
 function handleShowContext() {
   // Retrieve the current contextData
   const contextDataRaw = vscode.workspace.getConfiguration().get('tempContextCode');
+  let output = [];
+
+  if (contextDataRaw) {
+    try {
+      // Parse the JSON string
+      const contextData = JSON.parse(contextDataRaw);
+
+      if (Array.isArray(contextData)) {
+        // If contextData is an array, map over it and format each item
+        output = contextData.map((data) => {
+          // Assuming formatMarkdown returns a string in Markdown syntax
+          // that should be converted safely to HTML for display in VS Code Webview
+          const contextHtml = formatMarkdown(data.context, true); // sanitize this if needed
+          const definitionHtml = formatMarkdown(data.definition, true); // sanitize this if needed
+
+          // Return the combined HTML string for each array element
+          return `<div><strong>Context:</strong> ${contextHtml}</div> <div><strong>Definition:</strong>${definitionHtml}</div>`;
+        });
+      }
+    } catch (e) {
+      console.error('Parsing error:', e);
+    }
+  }
+
+  // You might want to do something with the output, such as joining it, if it's intended to be a single HTML string
+  if (output.length) {
+    output = output.join(''); // Join all the HTML strings together.
+  }
+
   if (contextDataRaw) {
     // Display the current contextData 
     panel.webview.postMessage({
       command: 'updateChatGptOutput',
-      htmlContent: `<div>${formatMarkdown(contextDataRaw)}</div>`
+      htmlContent: output
     });
   } else {
     panel.webview.postMessage({
