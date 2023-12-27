@@ -4,6 +4,7 @@ const showdown = require('showdown');
 
 let panel;
 let currentPage = 1;
+let chatSession = [];
 
 function formatMarkdown(markdownText, isCode = false) {
   let formattedMarkdown
@@ -118,6 +119,12 @@ function activate(context) {
               case 'clearContext':
                 handleClearContext();
                 break;
+              case 'showSession':
+                handleShowSession();
+                break;
+              case 'clearSession':
+                handleClearSession();
+                break;
             }
           },
           undefined,
@@ -215,17 +222,71 @@ function handleClearContext() {
 }
 
 
+function handleShowSession() {
+  // Join the chat session into one string with line breaks
+  let sessionText = chatSession.map(entry => `${entry.role}: ${entry.content}`).join('\\n\\n');
+  if (sessionText == "") {
+    sessionText = "Session is empty."
+  }
+  // Send the sessionText to the webview to be displayed
+  if (panel && panel.webview) {
+    const sessionHtml = formatMarkdown(sessionText, true);
+    panel.webview.postMessage({
+      command: 'updateChatGptOutput',
+      htmlContent: `<div>${sessionHtml}</div>`
+    });
+  }
+}
+
+function handleClearSession() {
+  // Clear the chat session array
+  chatSession = [];
+  // Notify the webview that the session has been cleared
+  if (panel && panel.webview) {
+    panel.webview.postMessage({
+      command: 'updateChatGptOutput',
+      htmlContent: `<div>Session cleared.</div>`
+    });
+  }
+  vscode.window.showInformationMessage('Session cleared');
+}
+
 async function handleSubmitInput(inputText, context) {
   // Retrieve the current tempContextCode
   const tempContextRaw = vscode.workspace.getConfiguration().get('tempContextCode');
   let tempContext = tempContextRaw ? JSON.parse(tempContextRaw) : [];
 
+  if (chatSession.length == 0) {
+    chatSession.push({
+      role: "system",
+      content: "I am a software engineer."
+    });
+  }
+
+  // Before pushing the new user's input into the chatSession, check if we need to remove older entries.
+  // Keep the session length to a maximum of 10, including the initial message.
+  const maxSessionLength = 10;
+  while (chatSession.length >= maxSessionLength) {
+    // Here we keep the first entry and remove the one after it, which is the oldest user/system pair.
+    if (chatSession.length === maxSessionLength && chatSession[1].role === "user") {
+      chatSession.splice(1, 2); // Remove both the user and the following system response.
+    } else {
+      chatSession.splice(1, 1); // Remove single entries if not a user/system pair.
+    }
+  }
+
   // Combine the context and the input text to form the prompt
-  const prompt = tempContext.map(item => `${item.context}: ${item.definition}`).join('\n') + '\n' + inputText;
+  const prompt = tempContext.map(item => `${item.context}: ${item.definition}`).join('\\n') + '\\n' + inputText;
+
+  chatSession.push({
+    role: "user",
+    content: prompt
+  });
+
   if (panel && panel.webview) {
     panel.webview.postMessage({
       command: 'updateChatGptOutput',
-      htmlContent: '<div class="loading"><img src="https://storage.googleapis.com/cryptitalk/loading.gif" alt="Loading..."></div>'
+      htmlContent: '<div class=\"loading\"><img src=\"https://storage.googleapis.com/cryptitalk/loading.gif\" alt=\"Loading...\"></div>'
     });
   }
   // Retrieve OpenAI API key from global state
@@ -235,17 +296,10 @@ async function handleSubmitInput(inputText, context) {
     return;
   }
   try {
-    // Send the prompt to ChatGPT API
+    // Send the chat session history including the new prompt to ChatGPT API
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
       model: "gpt-4-1106-preview", // Replace with the correct chat model identifier
-      messages: [{
-        role: "system",
-        content: "I am a code writer."
-      }, {
-        role: "user",
-        content: prompt
-      }],
-      // Additional parameters as needed
+      messages: chatSession
     }, {
       headers: {
         'Content-Type': 'application/json',
@@ -254,6 +308,12 @@ async function handleSubmitInput(inputText, context) {
     });
 
     const chatGptResponse = response.data.choices[0].message.content.trim();
+
+    // Append the system response to the chat session
+    chatSession.push({
+      role: "system",
+      content: chatGptResponse
+    });
 
     if (panel && panel.webview) {
       md = formatMarkdown(chatGptResponse, false);
@@ -454,6 +514,8 @@ function getWebviewContent(contextData, currentPage = 1) {
                                 style="flex-grow: 1; margin-right: 5px;">Show Context</button>
                         <button id="clearContextButton" onclick="clearContext()" 
                                 style="flex-grow: 1;">Clear Context</button>
+                        <button id="showSessionButton" onclick="showSession()" style="flex-grow: 1; margin-right: 5px;">Show Session</button>
+                        <button id="clearSessionButton" onclick="clearSession()" style="flex-grow: 1;">Clear Session</button>
                     </div>
                   </div>`;
 
@@ -643,6 +705,16 @@ function getWebviewContent(contextData, currentPage = 1) {
         function clearContext() {
           vscode.postMessage({
             command: 'clearContext'
+          });
+        }
+        function showSession() {
+          vscode.postMessage({
+            command: 'showSession'
+          });
+        }
+        function clearSession() {
+          vscode.postMessage({
+            command: 'clearSession'
           });
         }
         // Adding Event Listeners to Buttons
