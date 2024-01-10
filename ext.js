@@ -98,10 +98,10 @@ function activate(context) {
                 handleDelete(message.context);
                 break;
               case 'select':
-                handleSelect((currentPage - 1) * 5 + message.index, true);
+                handleSelect(message.context, true);
                 break;
               case 'unselect':
-                handleSelect((currentPage - 1) * 5 + message.index, false);
+                handleSelect(message.context, false);
                 break;
               case 'saveDefinition':
                 handleSaveDefinition((currentPage - 1) * 5 + message.index, message.newDefinition);
@@ -371,7 +371,7 @@ function handleDelete(contextText) {
     });
 }
 
-function handleSelect(index, isSelected) {
+function handleSelect(contextText, isSelected) {
   // Retrieve the current contextCode
   const currentContextRaw = vscode.workspace.getConfiguration().get('contextCode');
   let currentContext = [];
@@ -389,23 +389,29 @@ function handleSelect(index, isSelected) {
     }
   }
 
-  if (index >= 0 && index < currentContext.length) {
-    const selectedItem = currentContext[index];
+  // Decode the context text (if it's encoded)
+  contextText = decodeURIComponent(contextText);
 
+  // Find the item with the matching context
+  const selectedItem = currentContext.find(item => item.context === contextText);
+
+  if (selectedItem) {
     if (isSelected) {
-      // Add to tempContextCode
-      tempContext.push(selectedItem);
+      // Add to tempContextCode if not already selected
+      if (!tempContext.some(item => item.context === contextText)) {
+        tempContext.push(selectedItem);
+      }
       vscode.window.showInformationMessage(`Selected Context: ${selectedItem.context}`);
     } else {
       // Remove from tempContextCode
-      tempContext = tempContext.filter(item => item.context !== selectedItem.context);
+      tempContext = tempContext.filter(item => item.context !== contextText);
       vscode.window.showInformationMessage(`Unselected Context: ${selectedItem.context}`);
     }
 
     // Save the updated tempContextCode
     vscode.workspace.getConfiguration().update('tempContextCode', JSON.stringify(tempContext), vscode.ConfigurationTarget.Global);
   } else {
-    vscode.window.showErrorMessage('Invalid context selection');
+    vscode.window.showErrorMessage('Context text not found');
   }
 }
 
@@ -491,7 +497,7 @@ function getWebviewContent(contextData, currentPage = 1) {
               </div>
               <button class="edit-button" onclick="editDefinition(${index})">Edit</button>
               <button class="save-button" onclick="saveDefinition(${index})" style="display: none;">Save</button>
-              <input type="checkbox" id="selectItem-${index}" onchange="selectItem(${index}, this.checked)">
+              <input type="checkbox" id="selectItem-${index}" onchange="selectItem('${encodeURIComponent(item.context).replace(/'/g, "\\'")}', this.checked)">
               <label for="selectItem-${index}">Select</label>
             </div>`;
   }).join('');
@@ -631,10 +637,10 @@ function getWebviewContent(contextData, currentPage = 1) {
           element.closest('.grid-item').remove();
         }        
 
-        function selectItem(index, isSelected) {
+        function selectItem(contextText, isSelected) {
           vscode.postMessage({
             command: isSelected ? 'select' : 'unselect',
-            index: index
+            context: contextText
           });
         }
 
