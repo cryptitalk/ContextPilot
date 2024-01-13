@@ -154,7 +154,53 @@ function activate(context) {
     }
   });
 
-  context.subscriptions.push(addDisposable, getDisposable, setKeyDisposable);
+  let addClipboardDisposable = vscode.commands.registerCommand('extension.addClipboardContext', async () => {
+    // Read the clipboard content
+    const clipboardText = await vscode.env.clipboard.readText();
+
+    if (clipboardText) {
+      // Escape special characters or sanitize the clipboard text
+      // This can be adjusted based on the specific requirements
+      let cleanedClipboardText = clipboardText.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+      // Retrieve the current contextCode
+      const currentContextRaw = vscode.workspace.getConfiguration().get('contextCode');
+      let currentContext = [];
+
+      if (currentContextRaw) {
+        try {
+          // Parse the existing JSON array if it exists
+          currentContext = JSON.parse(currentContextRaw);
+        } catch (err) {
+          console.error('Error parsing existing contextCode:', err);
+          // Fallback to an empty array if parsing fails
+          currentContext = [];
+        }
+      }
+
+      // Create a new context object with the clipboard content
+      const newContextObj = {
+        "context": cleanedClipboardText,
+        "definition": ""
+      };
+
+      // Add the new context object
+      currentContext.push(newContextObj);
+
+      // Update the contextCode with the new array
+      vscode.workspace.getConfiguration().update('contextCode', JSON.stringify(currentContext), vscode.ConfigurationTarget.Global)
+        .then(() => {
+          vscode.window.showInformationMessage('Clipboard content added to context');
+        }, err => {
+          console.error('Error updating contextCode with clipboard content:', err);
+          vscode.window.showErrorMessage('Failed to add clipboard content to context');
+        });
+    } else {
+      vscode.window.showErrorMessage('Clipboard is empty');
+    }
+  });
+
+  context.subscriptions.push(addDisposable, getDisposable, setKeyDisposable, addClipboardDisposable);
 }
 
 

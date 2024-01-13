@@ -34,6 +34,10 @@
         "title": "Add Context"
       },
       {
+        "command": "extension.addClipboardContext",
+        "title": "Add Clipboard Context"
+      },
+      {
         "command": "extension.getContext",
         "title": "Get Context"
       },
@@ -53,6 +57,9 @@
         {
           "command": "extension.addContext"
         },
+        {
+          "command": "extension.addClipboardContext"
+        },        
         {
           "command": "extension.setOpenAIKey"
         },
