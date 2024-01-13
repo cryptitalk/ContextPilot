@@ -1,6 +1,15 @@
 {
   "name": "context-pilot",
   "version": "0.0.1",
+  "publisher": "Crypti Talk",
+  "categories": [
+    "Machine Learning",
+    "Testing","Debuggers"
+  ],
+  "keywords":[
+    "Productivity",
+    "GenAI","Context"
+  ],
   "engines": {
     "vscode": "^1.47.3"
   },
