@@ -1,6 +1,6 @@
 {
   "name": "context-pilot",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "CryptiTalk",
   "description": "Tools for collecting contexts and gainging insight from LLM.",
   "categories": [
