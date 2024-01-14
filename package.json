@@ -1,7 +1,8 @@
 {
   "name": "context-pilot",
-  "version": "0.0.1",
-  "publisher": "Crypti Talk",
+  "version": "1.0.1",
+  "publisher": "CryptiTalk",
+  "description": "Tools for collecting contexts and gainging insight from LLM.",
   "categories": [
     "Machine Learning",
     "Testing","Debuggers"

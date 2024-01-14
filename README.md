@@ -1,5 +1,9 @@
 # ContextPilot
 
+![Alt Text](https://storage.googleapis.com/cryptitalk/gemini_fast.gif)
+
+
+
 A Visual Studio Code extension that helps manage contextual information within the editor, allowing users to interact with an AI service for enhanced coding experiences.
 
 ## Features
@@ -56,7 +60,7 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## Credits
 
-Developed by [Crupti Talk](https://github.com/cryptitalk).
+Developed by [Crypti Talk](https://github.com/cryptitalk).
 
 ## Contact
 
