@@ -699,17 +699,17 @@ function getWebviewContent(contextData, currentPage = 1) {
                   <div class="right-panel">
                     <h3>AI Responses</h3>
                     <div style="display: flex;">
-                      <button style="flex: 1;" onclick="showOutput('chatGpt')">ChatGPT</button>
-                      <button style="flex: 1;" onclick="showOutput('gemini')">Gemini</button>
+                      <button style="flex: 1;" id="chatGptTab" onclick="showOutput('chatGpt')">ChatGPT</button>
+                      <button style="flex: 1;" id="geminiTab" onclick="showOutput('gemini')">Gemini</button>
                     </div>
-                    <div id="chatGptOutput" style="padding: 10px; white-space: pre-wrap; display: block;">
+                    <div id="chatGptOutput" style="padding: 10px; white-space: pre-wrap;">
                       ChatGPT responses will appear here...
                     </div>
                     <div id="geminiOutput" style="padding: 10px; white-space: pre-wrap; display: none;">
                       Gemini responses will appear here...
                     </div>
                   </div>
-                `;
+                  `;
 
 
   return `
@@ -797,7 +797,11 @@ function getWebviewContent(contextData, currentPage = 1) {
         height: 50px; /* Example height, adjust as needed */
         display: block; /* Centers the image in the div */
         margin: 0 auto; /* Centers the image horizontally */
-      }     
+      }
+      .active-tab {
+        background-color: #007acc;
+        color: white;
+      } 
       </style>
       <script>
         let activeService = 'chatGpt';
@@ -850,10 +854,29 @@ function getWebviewContent(contextData, currentPage = 1) {
         }
 
         function showOutput(outputId) {
+          // Hide all output divs
           document.getElementById('chatGptOutput').style.display = 'none';
           document.getElementById('geminiOutput').style.display = 'none';
+        
+          // Show selected output div
           document.getElementById(outputId + 'Output').style.display = 'block';
+        
+          // Update active service and tabs visual state
           activeService = outputId;
+          updateActiveServiceTabs();
+        }
+        
+        function updateActiveServiceTabs() {
+          // Reset both tabs to inactive state
+          document.getElementById('chatGptTab').classList.remove('active-tab');
+          document.getElementById('geminiTab').classList.remove('active-tab');
+        
+          // Set the active tab based on the selected service
+          if (activeService === 'chatGpt') {
+            document.getElementById('chatGptTab').classList.add('active-tab');
+          } else {
+            document.getElementById('geminiTab').classList.add('active-tab');
+          }
         }
       </script>
     </head>
@@ -882,6 +905,7 @@ function getWebviewContent(contextData, currentPage = 1) {
               break;
           }
         });
+        updateActiveServiceTabs();
         function updateChatGptOutput(htmlContent) {
           const outputDiv = document.getElementById('chatGptOutput');
           outputDiv.innerHTML = htmlContent;
