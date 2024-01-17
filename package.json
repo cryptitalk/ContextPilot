@@ -1,15 +1,17 @@
 {
   "name": "context-pilot",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "CryptiTalk",
-  "description": "Tools for collecting contexts and gainging insight from LLM.",
+  "description": "Tools for collecting contexts and gaining insight from LLM.",
   "categories": [
     "Machine Learning",
-    "Testing","Debuggers"
+    "Testing",
+    "Debuggers"
   ],
-  "keywords":[
+  "keywords": [
     "Productivity",
-    "GenAI","Context"
+    "GenAI",
+    "Context"
   ],
   "engines": {
     "vscode": "^1.47.3"
@@ -40,8 +42,8 @@
     ],
     "commands": [
       {
-        "command": "extension.addContext",
-        "title": "Add Context"
+        "command": "extension.addSelectedContext",
+        "title": "Add Selected Context"
       },
       {
         "command": "extension.addClipboardContext",
@@ -53,7 +55,11 @@
       },
       {
         "command": "extension.setOpenAIKey",
-        "title": "Set LLM Key"
+        "title": "Set OpenAI Key"
+      },
+      {
+        "command": "extension.setGeminiKey",
+        "title": "Set Gemini Key"
       }
     ],
     "menus": {
@@ -65,16 +71,31 @@
       ],
       "contextpilot.submenu": [
         {
-          "command": "extension.addContext"
+          "submenu": "extension.addContextSubmenu",
+          "group": "9_contextpilot"
+        },
+        {
+          "command": "extension.getContext"
+        },
+        {
+          "submenu": "extension.addApiKey",
+          "group": "9_contextpilot"
+        }
+      ],
+      "extension.addContextSubmenu": [
+        {
+          "command": "extension.addSelectedContext"
         },
         {
           "command": "extension.addClipboardContext"
-        },        
+        }
+      ],
+      "extension.addApiKey": [
         {
           "command": "extension.setOpenAIKey"
         },
         {
-          "command": "extension.getContext"
+          "command": "extension.setGeminiKey"
         }
       ]
     },
@@ -82,6 +103,14 @@
       {
         "id": "contextpilot.submenu",
         "label": "ContextPilot"
+      },
+      {
+        "id": "extension.addContextSubmenu",
+        "label": "Add Context"
+      },
+      {
+        "id": "extension.addApiKey",
+        "label": "API Keys"
       }
     ]
   },

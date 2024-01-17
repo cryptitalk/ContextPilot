@@ -4,7 +4,8 @@ const showdown = require('showdown');
 
 let panel;
 let currentPage = 1;
-let chatSession = [];
+let chatSessionGPT = [];
+let chatSessionGemini = [];
 
 function formatMarkdown(markdownText, isCode = false) {
   let formattedMarkdown
@@ -21,7 +22,7 @@ function formatMarkdown(markdownText, isCode = false) {
 }
 
 function activate(context) {
-  let addDisposable = vscode.commands.registerCommand('extension.addContext', () => {
+  let addDisposable = vscode.commands.registerCommand('extension.addSelectedContext', () => {
     const editor = vscode.window.activeTextEditor;
     if (editor && editor.selection) {
       let selectedText = editor.document.getText(editor.selection);
@@ -111,19 +112,25 @@ function activate(context) {
                 updateWebview(currentPage = currentPage);
                 break;
               case 'submitInput':
-                handleSubmitInput(message.inputText, context);
+                if (message.service === 'chatGpt') {
+                  handleGPTSubmitInput(message.inputText, context);
+                } else if (message.service === 'gemini') {
+                  handleGeminiSubmitInput(message.inputText, context);
+                } else {
+                  console.error('Unknown service:', message.service);
+                }
                 break;
               case 'showContext':
-                handleShowContext();
+                handleShowContext(message.service);
                 break;
               case 'clearContext':
-                handleClearContext();
+                handleClearContext(message.service);
                 break;
               case 'showSession':
-                handleShowSession();
+                handleShowSession(message.service);
                 break;
               case 'clearSession':
-                handleClearSession();
+                handleClearSession(message.service);
                 break;
             }
           },
@@ -136,6 +143,22 @@ function activate(context) {
       }
     } else {
       vscode.window.showErrorMessage('No context code found');
+    }
+  });
+
+  let setGeminiKeyDisposable = vscode.commands.registerCommand('extension.setGeminiKey', async () => {
+    const geminiKey = await vscode.window.showInputBox({
+      prompt: "Enter your Gemini API key",
+      placeHolder: "Type the Gemini key here...",
+      ignoreFocusOut: true
+    });
+
+    if (geminiKey) {
+      console.log("set gemini key", geminiKey)
+      context.globalState.update('geminiKey', geminiKey);
+      vscode.window.showInformationMessage('Gemini key saved successfully!');
+    } else {
+      vscode.window.showErrorMessage('Gemini key was not saved.');
     }
   });
 
@@ -200,11 +223,12 @@ function activate(context) {
     }
   });
 
-  context.subscriptions.push(addDisposable, getDisposable, setKeyDisposable, addClipboardDisposable);
+  context.subscriptions.push(addDisposable, getDisposable, setKeyDisposable, setGeminiKeyDisposable, addClipboardDisposable);
 }
 
 
-function handleShowContext() {
+function handleShowContext(service) {
+  let command = service == "chatGpt" ? 'updateChatGptOutput' : 'updateGeminiOutput';
   // Retrieve the current contextData
   const contextDataRaw = vscode.workspace.getConfiguration().get('tempContextCode');
   let output = [];
@@ -239,25 +263,26 @@ function handleShowContext() {
   if (contextDataRaw) {
     // Display the current contextData 
     panel.webview.postMessage({
-      command: 'updateChatGptOutput',
+      command: command,
       htmlContent: output
     });
   } else {
     panel.webview.postMessage({
-      command: 'updateChatGptOutput',
+      command: command,
       htmlContent: `<div>No context found.</div>`
     });
   }
 }
 
-function handleClearContext() {
+function handleClearContext(service) {
+  let command = service == "chatGpt" ? 'updateChatGptOutput' : 'updateGeminiOutput';
   // Update the contextCode with an empty array
   vscode.workspace.getConfiguration().update('tempContextCode', JSON.stringify([]), vscode.ConfigurationTarget.Global)
     .then(() => {
       vscode.window.showInformationMessage('Context cleared');
       if (panel && panel.webview) {
         panel.webview.postMessage({
-          command: 'updateChatGptOutput',
+          command: command,
           htmlContent: `<div>Context cleared.</div>`
         });
       }
@@ -268,120 +293,219 @@ function handleClearContext() {
 }
 
 
-function handleShowSession() {
+function handleShowSession(service) {
+  let sessionText = "";
   // Join the chat session into one string with line breaks
-  let sessionText = chatSession.map(entry => `${entry.role}: ${entry.content}`).join('\\n\\n');
+  let command = service == "chatGpt" ? 'updateChatGptOutput' : 'updateGeminiOutput';
+  if (service == "chatGpt") {
+    sessionText = chatSessionGPT.map(entry => `${entry.role}: ${entry.content}`).join('\\n\\n');
+  } else if (service == "gemini") {
+    sessionText = chatSessionGemini.map(entry => `${entry.role}: ${entry.parts.text}`).join('\\n\\n');
+  }
   if (sessionText == "") {
-    sessionText = "Session is empty."
+    sessionText = "Session is empty.";
   }
   // Send the sessionText to the webview to be displayed
   if (panel && panel.webview) {
     const sessionHtml = formatMarkdown(sessionText, true);
     panel.webview.postMessage({
-      command: 'updateChatGptOutput',
+      command: command,
       htmlContent: `<div>${sessionHtml}</div>`
     });
   }
 }
 
-function handleClearSession() {
+function handleClearSession(service) {
   // Clear the chat session array
-  chatSession = [];
+  let command = service == "chatGpt" ? 'updateChatGptOutput' : 'updateGeminiOutput';
+  if (service == "chatGpt") {
+    chatSessionGPT = [];
+  } else if (service == "gemini") {
+    chatSessionGemini = [];
+  }
   // Notify the webview that the session has been cleared
   if (panel && panel.webview) {
     panel.webview.postMessage({
-      command: 'updateChatGptOutput',
+      command: command,
       htmlContent: `<div>Session cleared.</div>`
     });
   }
   vscode.window.showInformationMessage('Session cleared');
 }
 
-async function handleSubmitInput(inputText, context) {
-  // Retrieve the current tempContextCode
+// Helper function to manage chat session entries
+function manageChatSessionEntries(chatSession, maxSessionLength) {
+  while (chatSession.length >= maxSessionLength) {
+    if (chatSession.length === maxSessionLength && chatSession[1].role === "user") {
+      chatSession.splice(1, 2); // Remove the oldest user-system pair
+    } else {
+      chatSession.splice(1, 1); // Remove the oldest entry
+    }
+  }
+}
+
+// Helper function to handle errors from the API communication
+function handleError(err, apiName) {
+  console.error(`Error communicating with ${apiName} API:`, err.message);
+  if (err.response) {
+    console.error('Response Status:', err.response.status);
+    console.error('Response Status Text:', err.response.statusText);
+    console.error('Response Data:', err.response.data ? JSON.stringify(err.response.data).substring(0, 500) : 'No data');
+  } else {
+    console.error('No response received from the server');
+  }
+  vscode.window.showErrorMessage(`Failed to get response from ${apiName}`);
+}
+
+// Helper function to post a message to the webview
+function postMessageToWebview(panel, command, htmlContent) {
+  if (panel && panel.webview) {
+    panel.webview.postMessage({
+      command: command,
+      htmlContent: htmlContent
+    });
+  }
+}
+
+// Helper function to create the prompt
+function createPrompt(tempContext, inputText) {
+  return tempContext.map(item => `${item.context}: ${item.definition}`).join('\\n') + '\\n' + inputText;
+}
+
+// Helper function to post data to an API
+async function postDataToAPI(apiEndpoint, headers, body) {
+  return axios.post(apiEndpoint, body, {
+    headers: headers
+  });
+}
+
+async function handleChatAPIInput(apiInfo, inputText, context, chatSession) {
   const tempContextRaw = vscode.workspace.getConfiguration().get('tempContextCode');
   let tempContext = tempContextRaw ? JSON.parse(tempContextRaw) : [];
 
-  if (chatSession.length == 0) {
-    chatSession.push({
-      role: "system",
-      content: "I am a software engineer."
-    });
-  }
+  const { apiKeySetting, maxSessionLength, constructBodyFunc, handleResponseFunc, apiName } = apiInfo;
 
-  // Before pushing the new user's input into the chatSession, check if we need to remove older entries.
-  // Keep the session length to a maximum of 10, including the initial message.
-  const maxSessionLength = 10;
-  while (chatSession.length >= maxSessionLength) {
-    // Here we keep the first entry and remove the one after it, which is the oldest user/system pair.
-    if (chatSession.length === maxSessionLength && chatSession[1].role === "user") {
-      chatSession.splice(1, 2); // Remove both the user and the following system response.
+  if (chatSession.length === 0) {
+    if (apiName == "Gemini") {
+      chatSession.push({
+        role: "user",
+        parts: {text: "I am a software engineer."}
+      });
+      chatSession.push({
+        role: "model",
+        parts: {text: "I am a software engineer advisor."}
+      });
     } else {
-      chatSession.splice(1, 1); // Remove single entries if not a user/system pair.
-    }
-  }
-
-  // Combine the context and the input text to form the prompt
-  const prompt = tempContext.map(item => `${item.context}: ${item.definition}`).join('\\n') + '\\n' + inputText;
-
-  chatSession.push({
-    role: "user",
-    content: prompt
-  });
-
-  if (panel && panel.webview) {
-    panel.webview.postMessage({
-      command: 'updateChatGptOutput',
-      htmlContent: '<div class=\"loading\"><img src=\"https://storage.googleapis.com/cryptitalk/loading.gif\" alt=\"Loading...\"></div>'
-    });
-  }
-  // Retrieve OpenAI API key from global state
-  const openAIKey = context.globalState.get('openAIKey');
-  if (!openAIKey) {
-    vscode.window.showErrorMessage('OpenAI API key is not set. Please set it using "Set OpenAI Key" command.');
-    return;
-  }
-  try {
-    // Send the chat session history including the new prompt to ChatGPT API
-    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: "gpt-4-1106-preview", // Replace with the correct chat model identifier
-      messages: chatSession
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openAIKey}` // Use the retrieved OpenAI key here
-      }
-    });
-
-    const chatGptResponse = response.data.choices[0].message.content.trim();
-
-    // Append the system response to the chat session
-    chatSession.push({
-      role: "system",
-      content: chatGptResponse
-    });
-
-    if (panel && panel.webview) {
-      md = formatMarkdown(chatGptResponse, false);
-      panel.webview.postMessage({
-        command: 'updateChatGptOutput',
-        htmlContent: `<div>${md}</div>`
+      chatSession.push({
+        role: "system",
+        content: "I am a software engineer advisor."
       });
     }
-  } catch (err) {
-    console.error('Error communicating with ChatGPT API:', err.message);
-    if (err.response) {
-      console.error('Response Status:', err.response.status);
-      console.error('Response Status Text:', err.response.statusText);
-      console.error('Response Data:', err.response.data ? JSON.stringify(err.response.data).substring(0, 500) : 'No data');
-    } else {
-      console.error('No response received from the server');
+  }
+
+  manageChatSessionEntries(chatSession, maxSessionLength);
+
+  // Add the new user input to the chatSession
+  const prompt = createPrompt(tempContext, inputText);
+  if (apiName == "Gemini") {
+    chatSession.push({
+      role: 'user',
+      parts: {text: prompt}
+    });
+  } else {
+    chatSession.push({
+      role: 'user',
+      content: prompt
+    });
+  }
+  let command = apiName == "Gemini" ? 'updateGeminiOutput' : 'updateChatGptOutput';
+  postMessageToWebview(panel, command, '<div class="loading"><img src="https://storage.googleapis.com/cryptitalk/loading.gif" alt="Loading..."></div>');
+
+  const apiKey = context.globalState.get(apiKeySetting);
+  if (!apiKey) {
+    vscode.window.showErrorMessage(`${apiName} API key is not set. Please set it using "Set ${apiName} Key" command.`);
+    return;
+  }
+
+  try {
+    let headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    };
+    if (apiName == "Gemini") {
+       headers = {
+        'Content-Type': 'application/json',
+      };
     }
-    vscode.window.showErrorMessage('Failed to get response from ChatGPT');
+    const requestBody = constructBodyFunc(chatSession);
+    const response = await postDataToAPI(apiInfo.endpoint, headers, requestBody);
+    await handleResponseFunc(response, chatSession, panel);
+  } catch (err) {
+    handleError(err, apiName);
   } finally {
     // Clear the tempContextCode after the API call
     await vscode.workspace.getConfiguration().update('tempContextCode', null, true);
   }
+}
+
+// Re-usable function to handle the GPT API input
+async function handleGPTSubmitInput(inputText, context) {
+  const apiInfo = {
+    apiKeySetting: 'openAIKey',
+    maxSessionLength: 10,
+    constructBodyFunc: (chatSessionGPT) => ({
+      model: "gpt-4-1106-preview",
+      messages: chatSessionGPT
+    }),
+    handleResponseFunc: async (response, chatSessionGPT, panel) => {
+      const chatGptResponse = response.data.choices[0].message.content.trim();
+      chatSessionGPT.push({
+        role: "system",
+        content: chatGptResponse
+      });
+      md = formatMarkdown(chatGptResponse, false);
+      postMessageToWebview(panel, 'updateChatGptOutput', `<div>${md}</div>`);
+    },
+    apiName: "GPT",
+    endpoint: 'https://api.openai.com/v1/chat/completions'
+  };
+
+  await handleChatAPIInput(apiInfo, inputText, context, chatSessionGPT);
+}
+
+
+async function handleGeminiSubmitInput(inputText, context) {
+  const apiKey = context.globalState.get('geminiKey');
+  const apiInfo = {
+    apiKeySetting: 'geminiKey',
+    maxSessionLength: 10,
+    constructBodyFunc: (chatSessionGemini) => ({
+      safety_settings: {
+        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        threshold: "BLOCK_LOW_AND_ABOVE"
+      },
+      generation_config: {
+        temperature: 0.2,
+        topP: 0.8,
+        topK: 40,
+        maxOutputTokens: 2048,
+      },
+      contents: chatSessionGemini
+    }),
+    handleResponseFunc: async (response, chatSessionGemini, panel) => {  
+      const geminiResponseContent = response.data.candidates[0].content.parts.map(part => part.text).join('');
+      console.log("handleResponseFunc", geminiResponseContent)
+      chatSessionGemini.push({
+        role: "model",
+        parts: {text: geminiResponseContent}
+      });
+      const md = formatMarkdown ? formatMarkdown(geminiResponseContent, false) : geminiResponseContent;
+      postMessageToWebview(panel, 'updateGeminiOutput', `<div>${md}</div>`);
+    },
+    apiName: "Gemini",
+    endpoint: `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`
+  };
+  await handleChatAPIInput(apiInfo, inputText, context, chatSessionGemini);
 }
 
 function handleDelete(contextText) {
@@ -574,9 +698,18 @@ function getWebviewContent(contextData, currentPage = 1) {
   let rightPanelHtml = `
                   <div class="right-panel">
                     <h3>AI Responses</h3>
-                    <div id="chatGptOutput" style="white-space: pre-wrap;">Responses will appear here...</div>
+                    <div style="display: flex;">
+                      <button style="flex: 1;" onclick="showOutput('chatGpt')">ChatGPT</button>
+                      <button style="flex: 1;" onclick="showOutput('gemini')">Gemini</button>
+                    </div>
+                    <div id="chatGptOutput" style="padding: 10px; white-space: pre-wrap; display: block;">
+                      ChatGPT responses will appear here...
+                    </div>
+                    <div id="geminiOutput" style="padding: 10px; white-space: pre-wrap; display: none;">
+                      Gemini responses will appear here...
+                    </div>
                   </div>
-                 `;
+                `;
 
 
   return `
@@ -667,6 +800,7 @@ function getWebviewContent(contextData, currentPage = 1) {
       }     
       </style>
       <script>
+        let activeService = 'chatGpt';
         const vscode = acquireVsCodeApi();
 
         function deleteItem(element) {
@@ -714,6 +848,13 @@ function getWebviewContent(contextData, currentPage = 1) {
           item.querySelector('.edit-button').style.display = 'inline';
           item.querySelector('.save-button').style.display = 'none';
         }
+
+        function showOutput(outputId) {
+          document.getElementById('chatGptOutput').style.display = 'none';
+          document.getElementById('geminiOutput').style.display = 'none';
+          document.getElementById(outputId + 'Output').style.display = 'block';
+          activeService = outputId;
+        }
       </script>
     </head>
     <body>
@@ -736,37 +877,49 @@ function getWebviewContent(contextData, currentPage = 1) {
             case 'updateChatGptOutput':
               updateChatGptOutput(message.htmlContent);
               break;
+            case 'updateGeminiOutput':
+              updateGeminiOutput(message.htmlContent);
+              break;
           }
         });
         function updateChatGptOutput(htmlContent) {
           const outputDiv = document.getElementById('chatGptOutput');
           outputDiv.innerHTML = htmlContent;
         }
+        function updateGeminiOutput(htmlContent) {
+          const outputDiv = document.getElementById('geminiOutput');
+          outputDiv.innerHTML = htmlContent;
+        }
         function submitInput() {
           const inputText = document.getElementById('inputBox').value;
           vscode.postMessage({
             command: 'submitInput',
-            inputText: inputText
+            inputText: inputText,
+            service: activeService
           });
         }
         function showContext() {
           vscode.postMessage({
-            command: 'showContext'
+            command: 'showContext',
+            service: activeService
           });
         }
         function clearContext() {
           vscode.postMessage({
-            command: 'clearContext'
+            command: 'clearContext',
+            service: activeService
           });
         }
         function showSession() {
           vscode.postMessage({
-            command: 'showSession'
+            command: 'showSession',
+            service: activeService
           });
         }
         function clearSession() {
           vscode.postMessage({
-            command: 'clearSession'
+            command: 'clearSession',
+            service: activeService
           });
         }
         // Adding Event Listeners to Buttons
