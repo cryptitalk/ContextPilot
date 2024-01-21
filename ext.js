@@ -346,18 +346,17 @@ function createPrompt(tempContext, inputText) {
 
 // Helper function to post data to an API
 async function postDataToAPI(apiEndpoint, headers, body) {
-  return axios.post(apiEndpoint, body, {
+  const messageJsonString = JSON.stringify(body);
+  return axios.post(apiEndpoint, {message_json: messageJsonString}, {
     headers: headers
   });
 }
 
-function initEventStream(endpoint, message, command, chatResponse, chatSession, handleResponseFunc) {
-  // Prepare the message data to be sent as an encoded JSON in the URL
-  const messageJsonString = JSON.stringify(message);
-  const encodedMessageJson = encodeURIComponent(messageJsonString);
+async function initEventStream(endpoint, message, command, chatResponse, chatSession, handleResponseFunc) {
+  let respose = await postDataToAPI(endpoint.replace('streamchat', 'streaminit'), { 'Content-Type': 'application/json' }, message);
 
   // Initialize the EventSource with the encoded JSON in the URL query parameter
-  let eventSource = new EventSource(`${endpoint}?message_json=${encodedMessageJson}`);
+  let eventSource = new EventSource(`${endpoint}?session_id=${respose.data.session_id}`);
   eventSource.onmessage = function (event) {
     var messageData = JSON.parse(event.data);
     chatResponse += messageData.text;
@@ -447,7 +446,7 @@ async function handleGPTSubmitInput(inputText, context) {
       });
     },
     apiName: "GPT",
-    endpoint: "https://main-wjaxre4ena-uc.a.run.app/streamchat"
+    endpoint: "http://localhost:5000/streamchat"
   };
 
   await handleChatAPIInput(apiInfo, inputText, context, chatSessionGPT, chatGptResponse);
