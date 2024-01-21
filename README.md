@@ -2,45 +2,48 @@
 
 ![Alt Text](https://storage.googleapis.com/cryptitalk/gemini_fast.gif)
 
-
-
 A Visual Studio Code extension that helps manage contextual information within the editor, allowing users to interact with an AI service for enhanced coding experiences.
 
 ## Features
 
-- **Context Management**: Easily add, view, and delete context from your code editor.
+- **Context Management**: Easily add, view, and modify context from your code editor.
 - **Clipboard Integration**: Add text directly from your clipboard to the extension's context.
 - **AI-Enhanced Coding**: Use AI-powered services to interpret the context and provide coding insights.
+- **Support for Multiple AI Services**: Configurable settings to integrate with OpenAI and Google Gemini AI services.
 
 ## Requirements
 
-This extension requires an OpenAI API key to interact with AI services, and only ChatGPT plus is supported.
+This extension don't requires an API key to interact with AI services. Compatible services include both OpenAI (including ChatGPT plus) and Google Gemini and others if they are supported in the future.
 
 ## Installation
 
 To install ContextPilot:
 
-Go to vscode market place and install from there.
+1. Go to the Visual Studio Code Market Place.
+2. Search for "ContextPilot".
+3. Install the extension.
 
 ## Usage
 
 After installing the extension, the following commands will be available:
 
-- `Add Context`: Add the currently selected text to the context.
+- `Add Selected Context`: Add the currently selected text in the editor to the context.
 - `Add Clipboard Context`: Add text from your clipboard to the context.
-- `Get Context`: Retrieve and display the stored context.
-- `Set LLM Key`: Save your OpenAI key for AI-powered features.
+- `Get Context`: Retrieve and display the stored context, and interact with AI.
 
 ## Configuration
 
-No additional configuration is needed other than setting up your OpenAI API key with the `Set LLM Key` command.
+You can configure the extension by going to the extension settings in Visual Studio Code and setting the following:
+
+- `contextCode`: For storing the context data to be persistent across sessions.
+- `tempContextCode`: For temporarily holding context information to be sent to the AI service.
 
 ## Extension Settings
 
-Include if your extension adds any VSCode settings through `contributes.configuration`. For example:
+This extension contributes the following settings:
 
-- `contextCode`: A setting for storing the context data.
-- `tempContextCode`: Temporarily holds context information to be sent to the AI service.
+- `context-pilot.contextCode`: A setting for storing the context data.
+- `context-pilot.tempContextCode`: A setting for temporarily holding context information.
 
 ## Known Issues
 
@@ -60,7 +63,7 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## Credits
 
-Developed by [Crypti Talk](https://github.com/cryptitalk).
+Developed by [CryptiTalk](https://github.com/cryptitalk).
 
 ## Contact
 

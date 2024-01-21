@@ -1,6 +1,6 @@
 {
   "name": "context-pilot",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "publisher": "CryptiTalk",
   "description": "Tools for collecting contexts and gaining insight from LLM.",
   "categories": [
@@ -52,14 +52,6 @@
       {
         "command": "extension.getContext",
         "title": "Get Context"
-      },
-      {
-        "command": "extension.setOpenAIKey",
-        "title": "Set OpenAI Key"
-      },
-      {
-        "command": "extension.setGeminiKey",
-        "title": "Set Gemini Key"
       }
     ],
     "menus": {
@@ -76,10 +68,6 @@
         },
         {
           "command": "extension.getContext"
-        },
-        {
-          "submenu": "extension.addApiKey",
-          "group": "9_contextpilot"
         }
       ],
       "extension.addContextSubmenu": [
@@ -88,14 +76,6 @@
         },
         {
           "command": "extension.addClipboardContext"
-        }
-      ],
-      "extension.addApiKey": [
-        {
-          "command": "extension.setOpenAIKey"
-        },
-        {
-          "command": "extension.setGeminiKey"
         }
       ]
     },
@@ -107,10 +87,6 @@
       {
         "id": "extension.addContextSubmenu",
         "label": "Add Context"
-      },
-      {
-        "id": "extension.addApiKey",
-        "label": "API Keys"
       }
     ]
   },
@@ -119,6 +95,7 @@
   ],
   "dependencies": {
     "axios": "^1.6.2",
+    "eventsource": "^2.0.2",
     "showdown": "^2.1.0"
   }
 }

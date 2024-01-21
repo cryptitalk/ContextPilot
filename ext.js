@@ -1,11 +1,14 @@
 const vscode = require('vscode');
 const axios = require('axios');
 const showdown = require('showdown');
+const EventSource = require('eventsource');
 
 let panel;
 let currentPage = 1;
 let chatSessionGPT = [];
 let chatSessionGemini = [];
+let chatGptResponse = '';
+let chatGeminiResponse = '';
 
 function formatMarkdown(markdownText, isCode = false) {
   let formattedMarkdown
@@ -146,37 +149,6 @@ function activate(context) {
     }
   });
 
-  let setGeminiKeyDisposable = vscode.commands.registerCommand('extension.setGeminiKey', async () => {
-    const geminiKey = await vscode.window.showInputBox({
-      prompt: "Enter your Gemini API key",
-      placeHolder: "Type the Gemini key here...",
-      ignoreFocusOut: true
-    });
-
-    if (geminiKey) {
-      console.log("set gemini key", geminiKey)
-      context.globalState.update('geminiKey', geminiKey);
-      vscode.window.showInformationMessage('Gemini key saved successfully!');
-    } else {
-      vscode.window.showErrorMessage('Gemini key was not saved.');
-    }
-  });
-
-  let setKeyDisposable = vscode.commands.registerCommand('extension.setOpenAIKey', async () => {
-    const openAIKey = await vscode.window.showInputBox({
-      prompt: "Enter your OpenAI API key",
-      placeHolder: "Type the OpenAI key here...",
-      ignoreFocusOut: true
-    });
-
-    if (openAIKey) {
-      context.globalState.update('openAIKey', openAIKey);
-      vscode.window.showInformationMessage('OpenAI key saved successfully!');
-    } else {
-      vscode.window.showErrorMessage('OpenAI key was not saved.');
-    }
-  });
-
   let addClipboardDisposable = vscode.commands.registerCommand('extension.addClipboardContext', async () => {
     // Read the clipboard content
     const clipboardText = await vscode.env.clipboard.readText();
@@ -223,7 +195,7 @@ function activate(context) {
     }
   });
 
-  context.subscriptions.push(addDisposable, getDisposable, setKeyDisposable, setGeminiKeyDisposable, addClipboardDisposable);
+  context.subscriptions.push(addDisposable, getDisposable, addClipboardDisposable);
 }
 
 
@@ -379,21 +351,47 @@ async function postDataToAPI(apiEndpoint, headers, body) {
   });
 }
 
-async function handleChatAPIInput(apiInfo, inputText, context, chatSession) {
+function initEventStream(endpoint, message, command, chatResponse, chatSession, handleResponseFunc) {
+  // Prepare the message data to be sent as an encoded JSON in the URL
+  const messageJsonString = JSON.stringify(message);
+  const encodedMessageJson = encodeURIComponent(messageJsonString);
+
+  // Initialize the EventSource with the encoded JSON in the URL query parameter
+  let eventSource = new EventSource(`${endpoint}?message_json=${encodedMessageJson}`);
+  eventSource.onmessage = function (event) {
+    var messageData = JSON.parse(event.data);
+    chatResponse += messageData.text;
+    const md = formatMarkdown(chatResponse, false);
+    postMessageToWebview(panel, command, `<div>${md}</div>`);
+    if (messageData.finish_reason) {
+      eventSource.close();
+      handleResponseFunc(chatResponse, chatSession, panel);
+    }
+  };
+
+  // Define error handling
+  eventSource.onerror = function (event) {
+    console.error('EventSource failed:', event);
+    eventSource.close();
+  };
+  return eventSource;
+}
+
+async function handleChatAPIInput(apiInfo, inputText, context, chatSession, chatResponse) {
   const tempContextRaw = vscode.workspace.getConfiguration().get('tempContextCode');
   let tempContext = tempContextRaw ? JSON.parse(tempContextRaw) : [];
 
-  const { apiKeySetting, maxSessionLength, constructBodyFunc, handleResponseFunc, apiName } = apiInfo;
+  const { maxSessionLength, constructBodyFunc, handleResponseFunc, apiName } = apiInfo;
 
   if (chatSession.length === 0) {
     if (apiName == "Gemini") {
       chatSession.push({
         role: "user",
-        parts: {text: "I am a software engineer."}
+        parts: { text: "I am a software engineer." }
       });
       chatSession.push({
         role: "model",
-        parts: {text: "I am a software engineer advisor."}
+        parts: { text: "I am a software engineer advisor." }
       });
     } else {
       chatSession.push({
@@ -410,7 +408,7 @@ async function handleChatAPIInput(apiInfo, inputText, context, chatSession) {
   if (apiName == "Gemini") {
     chatSession.push({
       role: 'user',
-      parts: {text: prompt}
+      parts: { text: prompt }
     });
   } else {
     chatSession.push({
@@ -421,25 +419,9 @@ async function handleChatAPIInput(apiInfo, inputText, context, chatSession) {
   let command = apiName == "Gemini" ? 'updateGeminiOutput' : 'updateChatGptOutput';
   postMessageToWebview(panel, command, '<div class="loading"><img src="https://storage.googleapis.com/cryptitalk/loading.gif" alt="Loading..."></div>');
 
-  const apiKey = context.globalState.get(apiKeySetting);
-  if (!apiKey) {
-    vscode.window.showErrorMessage(`${apiName} API key is not set. Please set it using "Set ${apiName} Key" command.`);
-    return;
-  }
-
   try {
-    let headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    };
-    if (apiName == "Gemini") {
-       headers = {
-        'Content-Type': 'application/json',
-      };
-    }
     const requestBody = constructBodyFunc(chatSession);
-    const response = await postDataToAPI(apiInfo.endpoint, headers, requestBody);
-    await handleResponseFunc(response, chatSession, panel);
+    await initEventStream(apiInfo.endpoint, requestBody, command, chatResponse, chatSession, handleResponseFunc);
   } catch (err) {
     handleError(err, apiName);
   } finally {
@@ -450,62 +432,46 @@ async function handleChatAPIInput(apiInfo, inputText, context, chatSession) {
 
 // Re-usable function to handle the GPT API input
 async function handleGPTSubmitInput(inputText, context) {
+  chatGptResponse = '';
   const apiInfo = {
-    apiKeySetting: 'openAIKey',
     maxSessionLength: 10,
     constructBodyFunc: (chatSessionGPT) => ({
-      model: "gpt-4-1106-preview",
-      messages: chatSessionGPT
+      model: "gpt",
+      message: chatSessionGPT
     }),
     handleResponseFunc: async (response, chatSessionGPT, panel) => {
-      const chatGptResponse = response.data.choices[0].message.content.trim();
+      const chatGptResponse = response
       chatSessionGPT.push({
         role: "system",
         content: chatGptResponse
       });
-      md = formatMarkdown(chatGptResponse, false);
-      postMessageToWebview(panel, 'updateChatGptOutput', `<div>${md}</div>`);
     },
     apiName: "GPT",
-    endpoint: 'https://api.openai.com/v1/chat/completions'
+    endpoint: "https://main-wjaxre4ena-uc.a.run.app/streamchat"
   };
 
-  await handleChatAPIInput(apiInfo, inputText, context, chatSessionGPT);
+  await handleChatAPIInput(apiInfo, inputText, context, chatSessionGPT, chatGptResponse);
 }
 
 
 async function handleGeminiSubmitInput(inputText, context) {
-  const apiKey = context.globalState.get('geminiKey');
   const apiInfo = {
-    apiKeySetting: 'geminiKey',
     maxSessionLength: 10,
     constructBodyFunc: (chatSessionGemini) => ({
-      safety_settings: {
-        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-        threshold: "BLOCK_LOW_AND_ABOVE"
-      },
-      generation_config: {
-        temperature: 0.2,
-        topP: 0.8,
-        topK: 40,
-        maxOutputTokens: 2048,
-      },
-      contents: chatSessionGemini
+      model: "gemini",
+      message: chatSessionGemini
     }),
-    handleResponseFunc: async (response, chatSessionGemini, panel) => {  
-      const geminiResponseContent = response.data.candidates[0].content.parts.map(part => part.text).join('');
-      console.log("handleResponseFunc", geminiResponseContent)
+    handleResponseFunc: async (response, chatSessionGemini, panel) => {
+      const geminiResponseContent = response;
       chatSessionGemini.push({
         role: "model",
-        parts: {text: geminiResponseContent}
+        parts: { text: geminiResponseContent }
       });
-      const md = formatMarkdown ? formatMarkdown(geminiResponseContent, false) : geminiResponseContent;
-      postMessageToWebview(panel, 'updateGeminiOutput', `<div>${md}</div>`);
     },
     apiName: "Gemini",
-    endpoint: `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`
+    endpoint: "https://main-wjaxre4ena-uc.a.run.app/streamchat"
   };
-  await handleChatAPIInput(apiInfo, inputText, context, chatSessionGemini);
+  await handleChatAPIInput(apiInfo, inputText, context, chatSessionGemini, chatGeminiResponse);
 }
 
 function handleDelete(contextText) {
