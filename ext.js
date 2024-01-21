@@ -446,7 +446,7 @@ async function handleGPTSubmitInput(inputText, context) {
       });
     },
     apiName: "GPT",
-    endpoint: "http://localhost:5000/streamchat"
+    endpoint: "https://main-wjaxre4ena-uc.a.run.app/streamchat"
   };
 
   await handleChatAPIInput(apiInfo, inputText, context, chatSessionGPT, chatGptResponse);
