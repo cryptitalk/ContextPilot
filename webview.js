@@ -458,6 +458,14 @@ function getWebviewContent(contextData, currentPage = 1) {
               });
             }
           }
+          function navigateChat(direction) {
+            console.log("navigateChat", direction);
+            vscode.postMessage({
+              command: 'navigateChat',
+              direction: direction,
+              service: activeService
+            });
+          }
         </script>
       </body>
       </html>`;

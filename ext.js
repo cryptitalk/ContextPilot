@@ -8,6 +8,10 @@ let panel;
 let currentPage = 1;
 global.chatSessionGPT = [];
 global.chatSessionGemini = [];
+global.currentChatIndex = {
+  chatGpt: 0,
+  gemini: 0
+};
 
 function activate(context) {
   let addDisposable = vscode.commands.registerCommand('extension.addSelectedContext', () => {
@@ -119,6 +123,20 @@ function activate(context) {
                 break;
               case 'clearSession':
                 handleClearSession(panel, message.service);
+                break;
+              case 'navigateChat':
+                const activeService = message.service;
+                const direction = message.direction;
+                const serviceSessionData = activeService === 'chatGpt' ? global.chatSessionGPT : global.chatSessionGemini;
+                // Calculate new index based on direction
+                let newIndex = global.currentChatIndex[activeService];
+                if (direction === 'prev') {
+                  newIndex = Math.max(0, newIndex - 1);
+                } else if (direction === 'next') {
+                  newIndex = Math.min(serviceSessionData.length - 1, newIndex + 1);
+                }
+                global.currentChatIndex[activeService] = newIndex;
+                handleShowSession(panel, activeService);
                 break;
             }
           },
