@@ -144,14 +144,15 @@ function getWebviewContent(contextData, currentPage = 1) {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const pageData = contextData.slice(startIndex, endIndex);
-  
+
   
     let gridHtml = pageData.map((item, index) => {
       const safeContext = utils.formatMarkdown(item.context, true);
-      const safeDefinition = utils.formatMarkdown(item.definition, true);
-  
-      return `<div class="grid-item" data-index="${index}" data-context="${encodeURIComponent(item.context)}">
+      const safeDefinition = utils.formatMarkdown(item.definition, true);  
+
+    return `<div class="grid-item" data-index="${index}" data-context="${encodeURIComponent(item.context)}">
                 <div class="delete-button" onclick="deleteItem(this)">X</div>
+                <div class="toggle-size-button" onclick="toggleItemSize(this.parentNode, ${index})">E</div>
                 <div style="white-space: pre-wrap;"><strong>Context:</strong> ${safeContext}</div>
                 <div>
                   <strong>Definition:</strong>
@@ -228,7 +229,7 @@ function getWebviewContent(contextData, currentPage = 1) {
           flex-grow: 1;
           overflow: auto;
           display: grid;
-          grid-template-columns: repeat(5, 1fr); /* 5 equal columns */
+          grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
           gap: 10px;
           padding: 10px;
         }
@@ -250,6 +251,13 @@ function getWebviewContent(contextData, currentPage = 1) {
           position: relative;
           height: 100%;
           overflow: auto; /* Optional: Add a scrollbar if the content overflows */
+          grid-column: auto;
+        }
+        .grid-item.expanded {
+          grid-column: span 3;
+        }
+        .grid-item.narrow {
+          grid-column: span 1;
         }
         .delete-button {
           position: absolute;
@@ -258,6 +266,17 @@ function getWebviewContent(contextData, currentPage = 1) {
           cursor: pointer;
           padding: 4px 8px;
           background-color: red;
+          color: white;
+          font-weight: bold;
+          border-radius: 50%;
+        }
+        .toggle-size-button {
+          position: absolute;
+          top: 10px;
+          right: 40px; /* Adjusted this value to create space between the V and X buttons */
+          cursor: pointer;
+          padding: 4px 8px;
+          background-color: green;
           color: white;
           font-weight: bold;
           border-radius: 50%;
@@ -299,7 +318,7 @@ function getWebviewContent(contextData, currentPage = 1) {
         <script>
           let activeService = 'chatGpt';
           const vscode = acquireVsCodeApi();
-  
+        
           function deleteItem(element) {
             // Retrieve the context from the data-context attribute of the parent element
             const contextText = element.parentNode.getAttribute('data-context');
@@ -387,6 +406,27 @@ function getWebviewContent(contextData, currentPage = 1) {
           ${rightPanelHtml}
         </div>
         <script>
+            function toggleItemSize(element, index) {
+              const gridItems = document.querySelectorAll('.grid-item');
+              const isExpanded = element.classList.contains('expanded');
+              console.log("toggleItemSize", isExpanded);
+          
+              // Check if the element is already expanded, if so, collapse it
+              if (isExpanded) {
+                  element.classList.remove('expanded');
+              } else { // Otherwise, expand it and narrow others
+                  // Clear all previously expanded items first
+                  gridItems.forEach(item => {
+                      item.classList.remove('expanded');
+                      item.classList.add('narrow');
+                  });
+          
+                  // Now toggle the expanded state for the clicked item
+                  element.classList.add('expanded');
+                  element.classList.remove('narrow');
+              }
+          }
+        
           window.addEventListener('message', event => {
             const message = event.data; // The JSON data our extension sent
             switch (message.command) {
