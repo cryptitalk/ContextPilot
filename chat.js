@@ -114,7 +114,7 @@ function manageChatSessionEntries(chatSession, maxSessionLength) {
     const apiInfo = {
       maxSessionLength: 10,
       constructBodyFunc: (chatSessionGPT) => ({
-        model: "gpt",
+        model: "gpt-4-turbo-preview",
         message: chatSessionGPT
       }),
       handleResponseFunc: async (response, chatSessionGPT) => {
