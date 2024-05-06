@@ -23,6 +23,9 @@ function activate(context) {
       // This can be adjusted based on the specific requirements
       selectedText = selectedText.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
+      // Retrieve the file name from the active editor
+      const fileName = editor.document.fileName;
+
       // Retrieve the current contextCode
       const currentContextRaw = vscode.workspace.getConfiguration().get('contextCode');
       let currentContext = [];
@@ -38,10 +41,11 @@ function activate(context) {
         }
       }
 
-      // Create new context object
+      // Create new context object including the file name
       const newContextObj = {
         "context": selectedText,
-        "definition": ""
+        "definition": "",
+        "fileName": fileName
       };
 
       // Add the new context object
@@ -97,7 +101,7 @@ function activate(context) {
                 handleSelect(message.context, false);
                 break;
               case 'saveDefinition':
-                handleSaveDefinition((currentPage - 1) * 5 + message.index, message.newDefinition);
+                handleSaveDefinition((currentPage - 1) * 5 + message.index, message.newDefinition, message.newContext);
                 break;
               case 'changePage':
                 currentPage = message.newPage;
@@ -161,6 +165,8 @@ function activate(context) {
       // This can be adjusted based on the specific requirements
       let cleanedClipboardText = clipboardText.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
+      const fileName = editor ? editor.document.fileName : 'Clipboard_from_outsource';
+
       // Retrieve the current contextCode
       const currentContextRaw = vscode.workspace.getConfiguration().get('contextCode');
       let currentContext = [];
@@ -179,7 +185,8 @@ function activate(context) {
       // Create a new context object with the clipboard content
       const newContextObj = {
         "context": cleanedClipboardText,
-        "definition": ""
+        "definition": "",
+        "fileName": fileName
       };
 
       // Add the new context object

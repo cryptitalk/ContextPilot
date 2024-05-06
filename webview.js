@@ -78,7 +78,7 @@ function handleSelect(contextText, isSelected) {
   }
 }
 
-function handleSaveDefinition(index, newDefinition) {
+function handleSaveDefinition(index, newDefinition, newContext) {
   // Retrieve the current contextCode
   const currentContextRaw = vscode.workspace.getConfiguration().get('contextCode');
   let currentContext = [];
@@ -101,6 +101,7 @@ function handleSaveDefinition(index, newDefinition) {
 
   // Update the definition of the item at the specified index
   currentContext[index].definition = newDefinition;
+  currentContext[index].context = newContext;
 
   // Update the contextCode with the modified array
   vscode.workspace.getConfiguration().update('contextCode', JSON.stringify(currentContext), vscode.ConfigurationTarget.Global)
@@ -153,11 +154,15 @@ function getWebviewContent(contextData, currentPage = 1) {
     return `<div class="grid-item" data-index="${index}" data-context="${encodeURIComponent(item.context)}">
                 <div class="delete-button" onclick="deleteItem(this)">X</div>
                 <div class="toggle-size-button" onclick="toggleItemSize(this.parentNode, ${index})">E</div>
-                <div style="white-space: pre-wrap;"><strong>Context:</strong> ${safeContext}</div>
+                <div style="white-space: pre-wrap;">
+                  <strong>Context:</strong>
+                  <span class="context-text">${safeContext}</span>
+                  <textarea class="context-edit" style="display: none;"></textarea>
+                </div>
                 <div>
                   <strong>Definition:</strong>
                   <span class="definition-text">${safeDefinition}</span>
-                  <input type="text" class="definition-edit" value="${safeDefinition}" style="display: none;">
+                  <textarea class="definition-edit" style="display: none;"></textarea>
                 </div>
                 <button class="edit-button" onclick="editDefinition(${index})">Edit</button>
                 <button class="save-button" onclick="saveDefinition(${index})" style="display: none;">Save</button>
@@ -259,6 +264,22 @@ function getWebviewContent(contextData, currentPage = 1) {
         .grid-item.narrow {
           grid-column: span 1;
         }
+        .context-edit {
+          width: 90%;
+          padding: 8px;
+          margin-bottom: 10px;
+          box-sizing: border-box;
+          display: block;
+          height: 80vh;
+        }
+        .definition-edit {
+          width: 90%;
+          padding: 8px;
+          margin-bottom: 10px;
+          box-sizing: border-box;
+          display: block;
+          height: 100px;
+        }
         .delete-button {
           position: absolute;
           top: 10px;
@@ -342,22 +363,44 @@ function getWebviewContent(contextData, currentPage = 1) {
   
           function editDefinition(index) {
             const item = document.querySelector('.grid-item[data-index="' + index + '"]');
+          
+            // When entering edit mode, fetch the context and definition from respective span elements
+            const contextText = item.querySelector('.context-text').textContent;
+            const definitionText = item.querySelector('.definition-text').textContent;
+          
+            // Now populate the input fields with these fetched values
+            const contextInput = item.querySelector('.context-edit');
+            const definitionInput = item.querySelector('.definition-edit');
+          
+            contextInput.value = contextText;
+            definitionInput.value = definitionText;
+          
+            // Show input fields in place of text spans
+            item.querySelector('.context-text').style.display = 'none';
+            contextInput.style.display = 'inline';
             item.querySelector('.definition-text').style.display = 'none';
-            item.querySelector('.definition-edit').style.display = 'inline';
+            definitionInput.style.display = 'inline';
+          
+            // Swap the edit/save button visibility
             item.querySelector('.edit-button').style.display = 'none';
             item.querySelector('.save-button').style.display = 'inline';
-          }
+          }         
   
           function saveDefinition(index) {
             const item = document.querySelector('.grid-item[data-index="' + index + '"]');
+            const newContext = item.querySelector('.context-edit').value;
             const newDefinition = item.querySelector('.definition-edit').value;
-  
+          
             vscode.postMessage({
               command: 'saveDefinition',
               index: index,
+              newContext: newContext,
               newDefinition: newDefinition
             });
-  
+          
+            item.querySelector('.context-text').textContent = newContext;
+            item.querySelector('.context-text').style.display = 'inline';
+            item.querySelector('.context-edit').style.display = 'none';
             item.querySelector('.definition-text').textContent = newDefinition;
             item.querySelector('.definition-text').style.display = 'inline';
             item.querySelector('.definition-edit').style.display = 'none';
