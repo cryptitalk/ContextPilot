@@ -1,5 +1,6 @@
 const vscode = require('vscode');
 const utils = require('./utils');
+const { update_common } = require('./diff');
 
 function handleDelete(contextText) {
   // Decode the context text
@@ -113,6 +114,46 @@ function handleSaveDefinition(index, newDefinition, newContext) {
     });
 }
 
+async function handleRefreshDefinition(index) {
+  // Retrieve the current contextCode
+  const currentContextRaw = vscode.workspace.getConfiguration().get('contextCode');
+  if (!currentContextRaw) return;
+
+  let currentContext;
+  try {
+    currentContext = JSON.parse(currentContextRaw);
+  } catch (err) {
+    console.error('Error parsing existing contextCode:', err);
+    return;
+  }
+
+  // Check if the index is valid
+  if (index < 0 || index >= currentContext.length) {
+    console.error('Invalid index for refreshing definition');
+    vscode.window.showErrorMessage('Failed to refresh definition: Invalid index');
+    return;
+  }
+
+  const item = currentContext[index];
+  const uri = vscode.Uri.file(item.fileName); // Ensure that `item.fileName` contains the absolute path to the file
+
+  try {
+    // Here, we're using the VS Code API to read file contents
+    const content = (await vscode.workspace.fs.readFile(uri)).toString();
+    const newContext = content; // Let's assume you just need to read file content as new context
+
+    if (item.context !== newContext) {
+      item.context = update_common(item.context, newContext);
+      await vscode.workspace.getConfiguration().update('contextCode', JSON.stringify(currentContext), vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage('Context refreshed successfully');
+    }
+  } catch (err) {
+    vscode.window.showErrorMessage(`Failed to read file: ${item.fileName}`);
+    console.error('Error reading file for context refresh:', err);
+  }
+}
+
+
 function updateWebview(panel, currentPage = 1) {
   console.log("updateWebview", currentPage)
   // Retrieve the context data from the workspace configuration
@@ -154,6 +195,7 @@ function getWebviewContent(contextData, currentPage = 1) {
     return `<div class="grid-item" data-index="${index}" data-context="${encodeURIComponent(item.context)}">
                 <div class="delete-button" onclick="deleteItem(this)">X</div>
                 <div class="toggle-size-button" onclick="toggleItemSize(this.parentNode, ${index})">E</div>
+                <div class="refresh-button" onclick="refreshDefinition(${index})">R</div>
                 <div style="white-space: pre-wrap;">
                   <strong>Context:</strong>
                   <span class="context-text">${safeContext}</span>
@@ -302,6 +344,17 @@ function getWebviewContent(contextData, currentPage = 1) {
           font-weight: bold;
           border-radius: 50%;
         }
+        .refresh-button {
+          position: absolute;
+          top: 10px;
+          right: 70px;
+          cursor: pointer;
+          padding: 4px 8px;
+          background-color: #1E90FF;
+          color: white;
+          font-weight: bold;
+          border-radius: 50%;
+        }
         .pagination-controls {
           text-align: center;
           padding: 10px;
@@ -406,6 +459,13 @@ function getWebviewContent(contextData, currentPage = 1) {
             item.querySelector('.definition-edit').style.display = 'none';
             item.querySelector('.edit-button').style.display = 'inline';
             item.querySelector('.save-button').style.display = 'none';
+          }
+
+          function refreshDefinition(index) {       
+            vscode.postMessage({
+              command: 'refreshDefinition',
+              index: index,
+            });
           }
   
           function showOutput(outputId) {
@@ -559,5 +619,6 @@ function getWebviewContent(contextData, currentPage = 1) {
     handleDelete,
     handleSelect,
     handleSaveDefinition,
+    handleRefreshDefinition,
     updateWebview
 };

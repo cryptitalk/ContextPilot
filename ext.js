@@ -1,5 +1,5 @@
 const vscode = require('vscode');
-const { getWebviewContent, handleDelete, handleSelect, handleSaveDefinition, updateWebview } = require('./webview');
+const { getWebviewContent, handleDelete, handleSelect, handleSaveDefinition, updateWebview, handleRefreshDefinition } = require('./webview');
 const { handleShowContext, handleClearContext } = require('./context');
 const { handleShowSession, handleClearSession } = require('./session');
 const { handleGPTSubmitInput, handleGeminiSubmitInput } = require('./chat');
@@ -141,6 +141,9 @@ function activate(context) {
                 }
                 global.currentChatIndex[activeService] = newIndex;
                 handleShowSession(panel, activeService);
+                break;
+              case 'refreshDefinition':
+                handleRefreshDefinition((currentPage - 1) * 5 + message.index);
                 break;
             }
           },
