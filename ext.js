@@ -3,6 +3,7 @@ const { getWebviewContent, handleDelete, handleSelect, handleSaveDefinition, upd
 const { handleShowContext, handleClearContext } = require('./context');
 const { handleShowSession, handleClearSession } = require('./session');
 const { handleGPTSubmitInput, handleGeminiSubmitInput } = require('./chat');
+const { handleAddFileContext } = require('./file_ctx');
 
 let panel;
 let currentPage = 1;
@@ -168,7 +169,7 @@ function activate(context) {
       // This can be adjusted based on the specific requirements
       let cleanedClipboardText = clipboardText.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
-      const fileName = editor ? editor.document.fileName : 'Clipboard_from_outsource';
+      const fileName = 'Clipboard_from_outsource';
 
       // Retrieve the current contextCode
       const currentContextRaw = vscode.workspace.getConfiguration().get('contextCode');
@@ -208,7 +209,9 @@ function activate(context) {
     }
   });
 
-  context.subscriptions.push(addDisposable, getDisposable, addClipboardDisposable);
+  let addFileContextDisposable = vscode.commands.registerCommand('extension.addFileContext', handleAddFileContext);
+
+  context.subscriptions.push(addDisposable, getDisposable, addClipboardDisposable, addFileContextDisposable);
 }
 
 
