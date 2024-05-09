@@ -4,6 +4,7 @@ const { handleShowContext, handleClearContext } = require('./context');
 const { handleShowSession, handleClearSession } = require('./session');
 const { handleGPTSubmitInput, handleGeminiSubmitInput } = require('./chat');
 const { handleAddFileContext } = require('./file_ctx');
+const { getRelativeFilePath } = require('./utils');
 
 let panel;
 let currentPage = 1;
@@ -25,7 +26,7 @@ function activate(context) {
       selectedText = selectedText.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
       // Retrieve the file name from the active editor
-      const fileName = editor.document.fileName;
+      const fileName = getRelativeFilePath();
 
       // Retrieve the current contextCode
       const currentContextRaw = vscode.workspace.getConfiguration().get('contextCode');

@@ -1,5 +1,31 @@
 const vscode = require('vscode');
 const showdown = require('showdown');
+const path = require('path');
+
+function getRelativeFilePath() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        vscode.window.showErrorMessage('No active text editor found.');
+        return;
+    }
+
+    const fileName = editor.document.fileName;
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+
+    if (workspaceFolders) {
+        for (const folder of workspaceFolders) {
+            console.log('folder.uri.fsPath:', folder.uri.fsPath);
+            if (fileName.startsWith(folder.uri.fsPath)) {
+                const relativePath = path.relative(folder.uri.fsPath, fileName);
+                return relativePath;
+            }
+        }
+        vscode.window.showErrorMessage('The file is not in the current workspace folders.');
+    } else {
+        vscode.window.showErrorMessage('No workspace folder found.');
+    }
+}
+
 
 function formatMarkdown(markdownText, isCode = false) {
     let formattedMarkdown
@@ -50,6 +76,7 @@ module.exports = {
     formatMarkdown,
     getSafeContext,
     handleError,
-    postMessageToWebview
+    postMessageToWebview,
+    getRelativeFilePath
     // Export other utilities as needed...
 };
