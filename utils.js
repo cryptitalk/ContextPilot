@@ -28,16 +28,32 @@ function getRelativeFilePath() {
 
 
 function formatMarkdown(markdownText, isCode = false) {
-    let formattedMarkdown
-    // Convert Markdown to HTML
-    if (isCode) {
-        formattedMarkdown = "```\n" + markdownText + "\n```";
-    } else {
-        formattedMarkdown = markdownText
-    }
     const converter = new showdown.Converter();
-    const html = converter.makeHtml(formattedMarkdown);
-    // Still escape the generated HTML to prevent any potential XSS
+    let html;
+
+    if (isCode) {
+        // If directly formatting a piece of code, enclose in Markdown code block syntax
+        const formattedMarkdown = "```\n" + markdownText + "\n```";
+        html = converter.makeHtml(formattedMarkdown);
+    } else {
+        // Regex to capture optional language specifier and the code
+        const codeBlockRegex = /```(\w+)?\s*([\s\S]*?)```/gm;
+        let formattedMarkdown = markdownText.replace(codeBlockRegex, (match, lang, code, offset) => {
+            // Generate a unique identifier for each code block
+            const id = `codeblock-${offset}`;
+            // Prepare the code with backticks, including the language if specified
+            const codeWithBackticks = lang ? `\`\`\`${lang}\n${code}\n\`\`\`` : `\`\`\`\n${code}\n\`\`\``;
+            // Creating an HTML snippet for the code block without converting to HTML yet
+            //const codeSnippet = `<pre><code>${codeWithBackticks}</code></pre>`;
+            // Adding a button after the code block for applying suggestions
+            const buttonHtml = `<button onclick="applyOneSuggestion('${id}')">Apply Suggestion</button>`;
+            // Storing the original code block in a hidden div
+            const hiddenCodeBlock = `<div id="${id}" style="display: none;">${code}</div>`;
+            return codeWithBackticks + buttonHtml + hiddenCodeBlock;
+        });
+        // Convert the entire prepared Markdown content to HTML at once
+        html = converter.makeHtml(formattedMarkdown);
+    }
     return html;
 }
 

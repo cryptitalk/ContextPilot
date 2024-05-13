@@ -5,6 +5,7 @@ const { handleShowSession, handleClearSession } = require('./session');
 const { handleGPTSubmitInput, handleGeminiSubmitInput } = require('./chat');
 const { handleAddFileContext } = require('./file_ctx');
 const { getRelativeFilePath } = require('./utils');
+const { handleApplySuggestions, handleApplyOneSuggestion } = require('./diff');
 
 let panel;
 let currentPage = 1;
@@ -144,6 +145,12 @@ function activate(context) {
                 global.currentChatIndex[activeService] = newIndex;
                 handleShowSession(panel, activeService);
                 break;
+              case 'applySuggestions': // FIXME this is unused
+                handleApplySuggestions(panel, message.service);
+                break;
+              case 'applyOneSuggestion':
+                handleApplyOneSuggestion(message.newCode);
+                break;
               case 'refreshDefinition':
                 handleRefreshDefinition((currentPage - 1) * 5 + message.index);
                 break;
@@ -214,12 +221,6 @@ function activate(context) {
 
   context.subscriptions.push(addDisposable, getDisposable, addClipboardDisposable, addFileContextDisposable);
 }
-
-
-
-
-
-
 
 exports.activate = activate;
 

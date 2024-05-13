@@ -163,7 +163,7 @@ async function handleGPTSubmitInput(panel, inputText, context) {
   const apiInfo = {
     maxSessionLength: 10,
     constructBodyFunc: (chatSessionGPT) => ({
-      model: "gpt-4-turbo-preview",
+      model: "gpt-4o",
       message: chatSessionGPT
     }),
     handleResponseFunc: async (response, chatSessionGPT) => {

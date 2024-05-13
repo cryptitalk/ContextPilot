@@ -1,6 +1,7 @@
 const vscode = require('vscode');
 const utils = require('./utils');
 const { update_common } = require('./diff');
+const path = require('path');
 
 function handleDelete(contextText) {
   // Decode the context text
@@ -135,7 +136,18 @@ async function handleRefreshDefinition(index) {
   }
 
   const item = currentContext[index];
-  const uri = vscode.Uri.file(item.fileName); // Ensure that `item.fileName` contains the absolute path to the file
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders) {
+    vscode.window.showErrorMessage("No open workspace.");
+    return;
+  }
+
+  const rootPath = workspaceFolders[0].uri.fsPath;
+  let absoluteFilePath = item.fileName;
+  if (!path.isAbsolute(item.fileName)) {
+    absoluteFilePath = path.join(rootPath, item.fileName);
+  }
+  const uri = vscode.Uri.file(absoluteFilePath);
 
   try {
     // Here, we're using the VS Code API to read file contents
@@ -177,20 +189,20 @@ function updateWebview(panel, currentPage = 1) {
 }
 
 function getWebviewContent(contextData, currentPage = 1) {
-    const itemsPerPage = 5; // Number of items per page
-    const totalPages = Math.ceil(contextData.length / itemsPerPage);
-  
-  
-  
-    // Calculate the slice of data for the current page
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const pageData = contextData.slice(startIndex, endIndex);
+  const itemsPerPage = 5; // Number of items per page
+  const totalPages = Math.ceil(contextData.length / itemsPerPage);
 
-  
-    let gridHtml = pageData.map((item, index) => {
-      const safeContext = utils.formatMarkdown(item.context, true);
-      const safeDefinition = utils.formatMarkdown(item.definition, true);  
+
+
+  // Calculate the slice of data for the current page
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const pageData = contextData.slice(startIndex, endIndex);
+
+
+  let gridHtml = pageData.map((item, index) => {
+    const safeContext = utils.formatMarkdown(item.context, true);
+    const safeDefinition = utils.formatMarkdown(item.definition, true);
 
     return `<div class="grid-item" data-index="${index}" data-context="${encodeURIComponent(item.context)}">
                 <div class="delete-button" onclick="deleteItem(this)">X</div>
@@ -211,17 +223,17 @@ function getWebviewContent(contextData, currentPage = 1) {
                 <input type="checkbox" id="selectItem-${index}" onchange="selectItem('${encodeURIComponent(item.context).replace(/'/g, "\\'")}', this.checked)">
                 <label for="selectItem-${index}">Select</label>
               </div>`;
-    }).join('');
-  
-    let paginationHtml = `
+  }).join('');
+
+  let paginationHtml = `
       <div class="pagination-controls">
         <button id="prevButton" ${currentPage === 1 ? 'disabled' : ''}>Previous</button>
         <span>Page ${currentPage} of ${totalPages}</span>
         <button id="nextButton" ${currentPage === totalPages ? 'disabled' : ''}>Next</button>
       </div>
     `;
-  
-    let inputHtml = `<div class="input-container">
+
+  let inputHtml = `<div class="input-container">
                       <input type="text" id="inputBox" placeholder="Enter text" 
                              style="width: 100%; margin-bottom: 10px; box-sizing: border-box;">
                       <div style="display: flex; justify-content: space-between;">
@@ -235,8 +247,8 @@ function getWebviewContent(contextData, currentPage = 1) {
                           <button id="clearSessionButton" onclick="clearSession()" style="flex-grow: 1;">Clear Session</button>
                       </div>
                     </div>`;
-  
-    let rightPanelHtml = `
+
+  let rightPanelHtml = `
                     <div class="right-panel">
                       <h3>AI Responses</h3>
                       <div style="display: flex;">
@@ -251,9 +263,9 @@ function getWebviewContent(contextData, currentPage = 1) {
                       </div>
                     </div>
                     `;
-  
-  
-    return `
+
+
+  return `
       <!DOCTYPE html>
       <html lang="en">
       <head>
@@ -609,16 +621,30 @@ function getWebviewContent(contextData, currentPage = 1) {
               service: activeService
             });
           }
+          function applySuggestions() {
+            vscode.postMessage({
+              command: 'applySuggestions',
+              service: activeService
+            });
+          }
+          function applyOneSuggestion(id) {
+              const hiddenCodeBlock = document.getElementById(id);
+              const codeToApply = hiddenCodeBlock.innerText;
+              vscode.postMessage({
+                  command: 'applyOneSuggestion',
+                  newCode: codeToApply
+              });
+          }
         </script>
       </body>
       </html>`;
-  }
+}
 
-  module.exports = {
-    getWebviewContent,
-    handleDelete,
-    handleSelect,
-    handleSaveDefinition,
-    handleRefreshDefinition,
-    updateWebview
+module.exports = {
+  getWebviewContent,
+  handleDelete,
+  handleSelect,
+  handleSaveDefinition,
+  handleRefreshDefinition,
+  updateWebview
 };

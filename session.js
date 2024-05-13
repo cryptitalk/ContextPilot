@@ -16,8 +16,10 @@ function handleShowSession(panel, service) {
     let command = service === "chatGpt" ? 'updateChatGptOutput' : 'updateGeminiOutput';
     const sessionHtml = utils.formatMarkdown(sessionText, false);
     const navigationHtml = `
-      <button ${currentIndex === 0 ? 'disabled' : ''} onclick="navigateChat('prev')">&lt; Previous</button>
-      <button ${currentIndex >= totalEntries - 1 ? 'disabled' : ''} onclick="navigateChat('next')">Next &gt;</button>
+      <div style="display: flex; justify-content: center;">
+        <button style="margin-right: 10px;" ${currentIndex === 0 ? 'disabled' : ''} onclick="navigateChat('prev')">&lt; Previous</button>
+        <button ${currentIndex >= totalEntries - 1 ? 'disabled' : ''} onclick="navigateChat('next')">Next &gt;</button>
+      </div>
     `;
     panel.webview.postMessage({
       command: command,
