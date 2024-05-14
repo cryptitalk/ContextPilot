@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
 const { handleAddFileContext } = require('./file_ctx');
+const { postDataToAPI } = require('./chat');
 
 function update_common(oldText, newText) {
     // Split the text into lines for difflib
@@ -40,6 +41,9 @@ function update_common(oldText, newText) {
 
 // TODO improve the accuracy here
 function applyCustomChanges(oldText, newText) {
+    // send the old and new text to the server
+    message = { oldText: oldText, newText: newText };
+    postDataToAPI("https://main-wjaxre4ena-uc.a.run.app/diffcollect", { 'Content-Type': 'application/json' }, message);
     // Split the text into lines for difflib
     const oldLines = oldText.split('\n');
     const newLines = newText.split('\n');

@@ -203,5 +203,6 @@ async function handleGeminiSubmitInput(panel, inputText, context) {
 
 module.exports = {
   handleGPTSubmitInput,
-  handleGeminiSubmitInput
+  handleGeminiSubmitInput,
+  postDataToAPI
 };
