@@ -1,6 +1,7 @@
 const vscode = require('vscode');
 const showdown = require('showdown');
 const path = require('path');
+const { exec } = require("child_process");
 
 function getRelativeFilePath() {
     const editor = vscode.window.activeTextEditor;
@@ -44,17 +45,29 @@ function formatMarkdown(markdownText, isCode = false) {
             // Prepare the code with backticks, including the language if specified
             const codeWithBackticks = lang ? `\`\`\`${lang}\n${code}\n\`\`\`` : `\`\`\`\n${code}\n\`\`\``;
             // Creating an HTML snippet for the code block without converting to HTML yet
-            //const codeSnippet = `<pre><code>${codeWithBackticks}</code></pre>`;
-            // Adding a button after the code block for applying suggestions
             const buttonHtml = `<button onclick="applyOneSuggestion('${id}')">Apply Suggestion</button>`;
-            // Storing the original code block in a hidden div
             const hiddenCodeBlock = `<div id="${id}" style="display: none;">${code}</div>`;
-            return codeWithBackticks + buttonHtml + hiddenCodeBlock;
+            // Adding an "Execute" button for shell or bash code blocks
+            const executeButtonHtml = `<button onclick="executeSuggestion('${id}')" style="margin-left: 10px;">Execute</button>`;
+            return codeWithBackticks + buttonHtml + executeButtonHtml + hiddenCodeBlock;
         });
         // Convert the entire prepared Markdown content to HTML at once
         html = converter.makeHtml(formattedMarkdown);
     }
     return html;
+}
+
+function executeCommandFromSuggestion(code) {
+    // Create a new terminal or use an existing one
+    let terminal = vscode.window.terminals.find(t => t.name === 'Command Execution Terminal');
+
+    if (!terminal) {
+        terminal = vscode.window.createTerminal('Command Execution Terminal');
+    }
+
+    // Show the terminal and execute the command
+    terminal.show();
+    terminal.sendText(code, true); // true indicates that the command should be run
 }
 
 function getSafeContext(contextText) {
@@ -93,6 +106,7 @@ module.exports = {
     getSafeContext,
     handleError,
     postMessageToWebview,
-    getRelativeFilePath
+    getRelativeFilePath,
+    executeCommandFromSuggestion
     // Export other utilities as needed...
 };

@@ -635,6 +635,14 @@ function getWebviewContent(contextData, currentPage = 1) {
                   newCode: codeToApply
               });
           }
+          function executeSuggestion(id) {
+            const hiddenCodeBlock = document.getElementById(id);
+            const codeToApply = hiddenCodeBlock.innerText;
+            vscode.postMessage({
+                command: 'executeSuggestion',
+                newCode: codeToApply
+            });
+        }
         </script>
       </body>
       </html>`;

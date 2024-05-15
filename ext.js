@@ -4,7 +4,7 @@ const { handleShowContext, handleClearContext } = require('./context');
 const { handleShowSession, handleClearSession } = require('./session');
 const { handleGPTSubmitInput, handleGeminiSubmitInput } = require('./chat');
 const { handleAddFileContext } = require('./file_ctx');
-const { getRelativeFilePath } = require('./utils');
+const { getRelativeFilePath, executeCommandFromSuggestion } = require('./utils');
 const { handleApplySuggestions, handleApplyOneSuggestion } = require('./diff');
 
 let panel;
@@ -150,6 +150,9 @@ function activate(context) {
                 break;
               case 'applyOneSuggestion':
                 handleApplyOneSuggestion(message.newCode);
+                break;
+              case 'executeSuggestion':
+                executeCommandFromSuggestion(message.newCode);
                 break;
               case 'refreshDefinition':
                 handleRefreshDefinition((currentPage - 1) * 5 + message.index);
