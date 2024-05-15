@@ -58,6 +58,74 @@ async function handleAddFileContext() {
     }
 }
 
+// Function to handle adding image context
+async function handleAddImgContext() {
+    // Open a file picker dialog to select an image file
+    const options = {
+        canSelectMany: false,
+        openLabel: 'Select Image File',
+        filters: {
+            'Image Files': ['png', 'jpg', 'jpeg', 'gif', 'bmp'],
+            'All Files': ['*']
+        }
+    };
+
+    const fileUri = await vscode.window.showOpenDialog(options);
+
+    if (fileUri && fileUri[0]) {
+        const selectedFile = fileUri[0].fsPath;
+
+        // Read the image file and convert it to base64
+        fs.readFile(selectedFile, 'base64', (err, data) => {
+            if (err) {
+                vscode.window.showErrorMessage('Failed to read the selected image file.');
+                console.error('Error reading image file:', err);
+                return;
+            }
+
+            const fileName = path.basename(selectedFile);
+            const base64Image = `data:image/${path.extname(fileName).slice(1)};base64,${data}`;
+
+            // Retrieve the current contextCode
+            const currentContextRaw = vscode.workspace.getConfiguration().get('contextCode');
+            let currentContext = [];
+
+            if (currentContextRaw) {
+                try {
+                    // Parse the existing JSON array if it exists
+                    currentContext = JSON.parse(currentContextRaw);
+                } catch (err) {
+                    console.error('Error parsing existing contextCode:', err);
+                    // Fallback to an empty array if parsing fails
+                    currentContext = [];
+                }
+            }
+
+            // Create a new context object with the image base64 string
+            const newContextObj = {
+                "context": base64Image,
+                "definition": "",
+                "fileName": fileName
+            };
+
+            // Add the new context object
+            currentContext.push(newContextObj);
+
+            // Update the contextCode with the new array
+            vscode.workspace.getConfiguration().update('contextCode', JSON.stringify(currentContext), vscode.ConfigurationTarget.Global)
+                .then(() => {
+                    vscode.window.showInformationMessage('Image content added to context');
+                }, err => {
+                    console.error('Error updating contextCode with image content:', err);
+                    vscode.window.showErrorMessage('Failed to add image content to context');
+                });
+        });
+    } else {
+        vscode.window.showWarningMessage('No image file selected');
+    }
+}
+
+
 function addToContextFile(rootPath, trackedFiles) {
     // Implement the logic to write file details to .ctx-pilot.cfg
     const configPath = `${rootPath}/.ctx-pilot.cfg`;
@@ -67,5 +135,6 @@ function addToContextFile(rootPath, trackedFiles) {
 }
 
 module.exports = {
-    handleAddFileContext
+    handleAddFileContext,
+    handleAddImgContext
 };

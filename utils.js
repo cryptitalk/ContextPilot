@@ -34,8 +34,22 @@ function formatMarkdown(markdownText, isCode = false) {
 
     if (isCode) {
         // If directly formatting a piece of code, enclose in Markdown code block syntax
-        const formattedMarkdown = "```\n" + markdownText + "\n```";
-        html = converter.makeHtml(formattedMarkdown);
+        // Regex to detect base64 images and replace with img tag
+        const base64ImageRegex = /data:image\/(png|jpg|jpeg|gif);base64,([A-Za-z0-9+/=]+)\s*/g;
+        let isImage = false;
+        let formattedMarkdown = markdownText.replace(base64ImageRegex, (match, type, base64) => {
+            console.log("detected iamge type:", type);
+            isImage = true;
+            return `<img src="data:image/${type};base64,${base64}" alt="Base64 Image" />`;
+        });
+        console.log("isImage:", isImage);
+        if (!isImage) {
+            formattedMarkdown = "```\n" + markdownText + "\n```";
+            html = converter.makeHtml(formattedMarkdown);
+            return html;
+        }
+        return formattedMarkdown;
+        
     } else {
         // Regex to capture optional language specifier and the code
         const codeBlockRegex = /```(\w+)?\s*([\s\S]*?)```/gm;

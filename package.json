@@ -1,6 +1,6 @@
  {
    "name": "context-pilot",
-   "version": "1.0.9",
+   "version": "1.1.0",
    "publisher": "CryptiTalk",
    "description": "Tools for collecting contexts and gaining insight from LLM.",
    "categories": [
@@ -54,8 +54,12 @@
          "title": "Get Context"
        },
        {
-         "command": "extension.addFileContext",
-         "title": "Add File Context"
+         "command": "extension.addImgContext",
+         "title": "Add Image Context"
+       },
+       {
+        "command": "extension.addImgContext",
+        "title": "Add Image Context"
        }
      ],
      "menus": {
@@ -71,11 +75,11 @@
            "group": "9_contextpilot"
          },
          {
-           "command": "extension.getContext"
+          "submenu": "extension.addFileContextSubmenu",
+          "group": "9_contextpilot"
          },
          {
-           "command": "extension.addFileContext",
-           "group": "9_contextpilot"
+           "command": "extension.getContext"
          }
        ],
        "extension.addContextSubmenu": [
@@ -85,7 +89,15 @@
          {
            "command": "extension.addClipboardContext"
           }
-       ]
+       ],
+       "extension.addFileContextSubmenu": [
+        {
+          "command": "extension.addImgContext"
+        },
+        {
+          "command": "extension.addSoundContext"
+         }
+      ]
      },
      "submenus": [
        {
@@ -95,7 +107,11 @@
        {
          "id": "extension.addContextSubmenu",
          "label": "Add Context"
-       }
+       },
+       {
+        "id": "extension.addFileContextSubmenu",
+        "label": "Add File Context"
+      }
      ]
    },
    "activationEvents": [

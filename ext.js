@@ -3,7 +3,7 @@ const { getWebviewContent, handleDelete, handleSelect, handleSaveDefinition, upd
 const { handleShowContext, handleClearContext } = require('./context');
 const { handleShowSession, handleClearSession } = require('./session');
 const { handleGPTSubmitInput, handleGeminiSubmitInput } = require('./chat');
-const { handleAddFileContext } = require('./file_ctx');
+const { handleAddImgContext } = require('./file_ctx');
 const { getRelativeFilePath, executeCommandFromSuggestion } = require('./utils');
 const { handleApplySuggestions, handleApplyOneSuggestion } = require('./diff');
 
@@ -220,9 +220,9 @@ function activate(context) {
     }
   });
 
-  let addFileContextDisposable = vscode.commands.registerCommand('extension.addFileContext', handleAddFileContext);
+  let addImgContextDisposable = vscode.commands.registerCommand('extension.addImgContext', handleAddImgContext);
 
-  context.subscriptions.push(addDisposable, getDisposable, addClipboardDisposable, addFileContextDisposable);
+  context.subscriptions.push(addDisposable, getDisposable, addClipboardDisposable, addImgContextDisposable);
 }
 
 exports.activate = activate;
