@@ -22,7 +22,26 @@ function manageChatSessionEntries(chatSession, maxSessionLength) {
 
 // Helper function to create the prompt
 function createPrompt(tempContext, inputText) {
-  return tempContext.map(item => `In context: ${item.fileName}\n content: ${item.context}\n definition ${item.definition}`).join('\n') + '\n' + inputText;
+  const isBase64Image = (context) => /^data:image\/[a-zA-Z]+;base64,/.test(context);
+  let txt = ''
+  let img_url = ''
+
+  // Only add inputText to the non-image parts
+  if (!tempContext.some(item => isBase64Image(item.context))) {
+    return tempContext.map(item => `In context: ${item.fileName}\n content: ${item.context}\n definition: ${item.definition}`).join('\n') + '\n' + inputText;
+  } else {
+    for (let i = 0; i < tempContext.length; i++) {
+      if (!isBase64Image(tempContext[i].context)) {
+        txt += `In context: ${tempContext[i].fileName}\n content: ${tempContext[i].context}\n definition: ${tempContext[i].definition}\n`;
+        break;
+      } else {
+        img_url = tempContext[i].context;
+      }
+    }
+    const ret = [{ type: "text", text: txt + '\n' + inputText }, { type: "image_url", image_url: { url: img_url } }];
+    console.log(ret);
+    return ret;
+  }
 }
 
 // Helper function to post data to an API
