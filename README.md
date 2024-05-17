@@ -1,21 +1,10 @@
 # ContextPilot
 
-![Alt Text](https://storage.googleapis.com/cryptitalk/gemini_fast.gif)
 
 A Visual Studio Code extension that helps manage contextual information within the editor, allowing users to interact with an AI service for enhanced coding experiences.
 
-## Features
 
-- **Context Management**: Easily add, view, and modify context from your code editor.
-- **Clipboard Integration**: Add text directly from your clipboard to the extension's context.
-- **AI-Enhanced Coding**: Use AI-powered services to interpret the context and provide coding insights.
-- **Support for Multiple AI Services**: Configurable settings to integrate with OpenAI and Google Gemini AI services.
-
-## Requirements
-
-This extension don't requires an API key to interact with AI services. Compatible services include both OpenAI (including ChatGPT plus) and Google Gemini and others if they are supported in the future.
-
-## Installation
+## 1. Installation
 
 To install ContextPilot:
 
@@ -23,27 +12,57 @@ To install ContextPilot:
 2. Search for "ContextPilot".
 3. Install the extension.
 
-## Usage
+## 2. Usage
 
-After installing the extension, the following commands will be available:
+### 1. Decoupled RAG
 
-- `Add Selected Context`: Add the currently selected text in the editor to the context.
-- `Add Clipboard Context`: Add text from your clipboard to the context.
-- `Get Context`: Retrieve and display the stored context, and interact with AI.
+#### 1.1 Add context from workspace
 
-## Configuration
+![Alt Text](https://storage.googleapis.com/cryptitalk/gifs/SelectContext1.gif)
 
-You can configure the extension by going to the extension settings in Visual Studio Code and setting the following:
+#### 1.2 Add context from clipboard
 
-- `contextCode`: For storing the context data to be persistent across sessions.
-- `tempContextCode`: For temporarily holding context information to be sent to the AI service.
+![Alt Text](https://storage.googleapis.com/cryptitalk/gifs/SelectKeyBoardContext1.gif)
 
-## Extension Settings
+#### 1.3 Edit context
 
-This extension contributes the following settings:
+![Alt Text](https://storage.googleapis.com/cryptitalk/gifs/EditContext1.gif)
 
-- `context-pilot.contextCode`: A setting for storing the context data.
-- `context-pilot.tempContextCode`: A setting for temporarily holding context information.
+#### 1.4 Define context
+
+![Alt Text](https://storage.googleapis.com/cryptitalk/gifs/DefineContext1.gif)
+
+#### 1.5 Chat with context to get suggestions
+
+![Alt Text](https://storage.googleapis.com/cryptitalk/gifs/ChatWithContext1.gif)
+
+#### 1.6 Navigate context and chat sessions
+
+![Alt Text](https://storage.googleapis.com/cryptitalk/gifs/NavigateContextSession1.gif)
+
+### 2. Apply and execute suggestions
+
+#### 2.1 Apply suggestions
+
+![Alt Text](https://storage.googleapis.com/cryptitalk/gifs/ApplySuggestion1.gif)
+
+#### 2.2 Execute suggestions
+
+![Alt Text](https://storage.googleapis.com/cryptitalk/gifs/execute1.gif)
+
+### 3. Multi-modal support
+
+#### 3.1 Add image to the context
+
+![Alt Text](https://storage.googleapis.com/cryptitalk/gifs/ChatWithImage1.gif)
+
+#### 3.2 Add audio to the context
+
+(In progress)
+
+#### 3.3 Add Document (PDF, docx) to the context
+
+(In progress)
 
 ## Known Issues
 
