@@ -52,7 +52,7 @@ function formatMarkdown(markdownText, isCode = false) {
         
     } else {
         // Regex to capture optional language specifier and the code
-        const codeBlockRegex = /```(\w+)?\s*([\s\S]*?)```/gm;
+        const codeBlockRegex = /```(\w+)?\s*([\s\S]*?)\s*```/gm;
         let formattedMarkdown = markdownText.replace(codeBlockRegex, (match, lang, code, offset) => {
             // Generate a unique identifier for each code block
             const id = `codeblock-${offset}`;
