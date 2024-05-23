@@ -166,24 +166,77 @@ function handleApplySuggestions(panel, service) {
     }
 }
 
-function handleApplyOneSuggestion(newCode) {
-    let files = readFiles();
-    let bestFile = null;
-    let maxSimilarity = 0;
-    for (let j = 0; j < files.length; j++) {
-        const file = files[j];
-        let s = new difflib.SequenceMatcher(null, newCode, file.fileData);
-        let ratio = s.ratio();
-        if (ratio > maxSimilarity) {
-            maxSimilarity = ratio;
-            bestFile = file;
+async function handleApplyOneSuggestion(newCode) {
+    // Open a file picker dialog to select a file or a folder
+    const options = {
+        canSelectFiles: true,        // Allow file selection
+        canSelectFolders: true,      // Allow folder selection
+        canSelectMany: false,
+        openLabel: 'Select a File or Folder to Apply Suggestion',
+        filters: {
+            'All Files': ['*']
         }
+    };
+
+    let fileUri = await vscode.window.showOpenDialog(options);
+
+    if (fileUri && fileUri[0]) {
+        const selectedPath = fileUri[0].fsPath;
+
+        fs.stat(selectedPath, (err, stats) => {
+            if (err) {
+                vscode.window.showErrorMessage(`Failed to access the selected path: ${err.message}`);
+                console.error('Error accessing path:', err);
+                return;
+            }
+
+            if (stats.isDirectory()) {
+                // If selected path is a directory, prompt to create a new file in that directory
+                vscode.window.showSaveDialog({
+                    defaultUri: vscode.Uri.file(path.join(selectedPath, 'newFile.txt')),
+                    saveLabel: 'Save New File',
+                    filters: {
+                        'All Files': ['*']
+                    }
+                }).then((saveUri) => {
+                    if (saveUri) {
+                        // Create the new file with the applied changes
+                        processFile(saveUri.fsPath, '', newCode);
+                    } else {
+                        vscode.window.showWarningMessage('File save cancelled.');
+                    }
+                });
+            } else if (stats.isFile()) {
+                // If selected path is a file, read and apply changes
+                fs.readFile(selectedPath, 'utf-8', (err, data) => {
+                    if (err) {
+                        vscode.window.showErrorMessage(`Failed to read the selected file: ${err.message}`);
+                        console.error('Error reading file:', err);
+                        return;
+                    }
+
+                    processFile(selectedPath, data, newCode);
+                });
+            } else {
+                vscode.window.showErrorMessage('Selected path is neither a file nor a directory.');
+            }
+        });
+    } else {
+        vscode.window.showWarningMessage('No file or folder selected');
     }
-    if (bestFile) {
-        let updatedCode = applyCustomChanges(bestFile.fileData, newCode);
-        fs.writeFileSync(bestFile.fileName, updatedCode);
-        vscode.window.showInformationMessage('changes applied {bestFile.fileName}');
-    }
+}
+
+// Helper function to process the file
+function processFile(filePath, fileData, newCode) {
+    let bestFile = { fileName: filePath, fileData: fileData };
+
+    // Apply custom changes
+    let updatedCode = applyCustomChanges(bestFile.fileData, newCode);
+
+    // Write updated code back to the file
+    fs.writeFileSync(bestFile.fileName, updatedCode);
+
+    vscode.window.showInformationMessage(`Changes applied to ${path.basename(bestFile.fileName)}`);
 }
 
 module.exports = {
