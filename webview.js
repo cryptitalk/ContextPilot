@@ -551,6 +551,12 @@ function getWebviewContent(contextData, currentPage = 1) {
               case 'updateGeminiOutput':
                 updateGeminiOutput(message.htmlContent);
                 break;
+              case 'suggestionApplied':
+                completeSuggestionApplication(message.id);
+                break;
+              case 'suggestionApplying':
+                startSuggestionApplication(message.id);
+                break;
             }
           });
           updateActiveServiceTabs();
@@ -569,6 +575,30 @@ function getWebviewContent(contextData, currentPage = 1) {
               inputText: inputText,
               service: activeService
             });
+          }
+          function startSuggestionApplication(id) {
+            const button = document.getElementById('apply-'+id);
+            const spinner = document.getElementById('spinner-'+id);
+
+            // Show spinner and disable button
+            button.innerText = "loading...";
+            button.disabled = true;
+            spinner.style.display = 'inline';
+
+            // Optionally indicate that the operation completed successfully
+            alert('Suggestion start applying!');
+          }
+          function completeSuggestionApplication(id) {
+            const button = document.getElementById('apply-'+id);
+            const spinner = document.getElementById('spinner-'+id);
+
+            // Hide spinner and enable button
+            button.innerText = "Apply Suggestion";
+            button.disabled = false;
+            spinner.style.display = 'none';
+
+            // Optionally indicate that the operation completed successfully
+            alert('Suggestion applied successfully!');
           }
           function showContext() {
             vscode.postMessage({
@@ -628,12 +658,13 @@ function getWebviewContent(contextData, currentPage = 1) {
             });
           }
           function applyOneSuggestion(id) {
-              const hiddenCodeBlock = document.getElementById(id);
-              const codeToApply = hiddenCodeBlock.innerText;
-              vscode.postMessage({
-                  command: 'applyOneSuggestion',
-                  newCode: codeToApply
-              });
+            const hiddenCodeBlock = document.getElementById(id);
+            const codeToApply = hiddenCodeBlock.innerText;
+            vscode.postMessage({
+                command: 'applyOneSuggestion',
+                newCode: codeToApply,
+                id: id
+            });
           }
           function executeSuggestion(id) {
             const hiddenCodeBlock = document.getElementById(id);

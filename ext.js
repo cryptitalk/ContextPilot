@@ -167,7 +167,7 @@ function activate(context) {
                   handleApplySuggestions(panel, message.service);
                   break;
                 case 'applyOneSuggestion':
-                  handleApplyOneSuggestion(message.newCode);
+                  handleApplyOneSuggestion(panel, message.newCode, message.id);
                   break;
                 case 'executeSuggestion':
                   executeCommandFromSuggestion(message.newCode);

@@ -96,8 +96,8 @@ function listFilesStructure(fileNames, prefix = '') {
 }
 
 function prepareSystemPrompt() {
-  let ret = "I am a software engineer advisor. I am working on this project, the file structure is as follows:\n";
-
+  let ret = "I am a software engineer advisor.";
+/*
   // Define the path to your project's .ctx-pilot.cfg file
   const configFilePath = path.join(vscode.workspace.rootPath || '', '.ctx-pilot.cfg');
 
@@ -119,7 +119,7 @@ function prepareSystemPrompt() {
     console.warn(".ctx-pilot.cfg file not found.");
     return "Unable to prepare the system prompt because the configuration file was not found.";
   }
-
+*/
   return ret;
 }
 

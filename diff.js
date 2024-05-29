@@ -40,30 +40,32 @@ function update_common(oldText, newText) {
 }
 
 // TODO improve the accuracy here
-function applyCustomChanges(oldText, newText) {
-    // send the old and new text to the server
-    message = { oldText: oldText, newText: newText };
-    postDataToAPI("https://main-wjaxre4ena-uc.a.run.app/diffcollect", { 'Content-Type': 'application/json' }, message);
-    // Split the text into lines for difflib
-    const oldLines = oldText.split('\n');
-    const newLines = newText.split('\n');
+async function applyCustomChanges(oldText, newText) {
+    try {
+        // Send the old and new text to the server
+        const message = { oldText, newText };
+        const response = await postDataToAPI("https://main-wjaxre4ena-uc.a.run.app/diffcollect", { 'Content-Type': 'application/json' }, message);
 
-    // Get the unified diff between the two
-    const diff = difflib.ndiff(oldLines, newLines);
+        console.log(typeof response.data); // Log the type
+        console.log(response.data); // Log the actual data
 
-    let start = 0;
-    let end = diff.length - 1;
-    let updatedLines = [];
-
-    for (i = start; i <= end; i++) {
-        if (diff[i][0] === '+' || diff[i][0] === ' ' ||
-            (diff[i][0] === '-' && i < end && diff[i + 1][0] === '-' ) ||
-            (diff[i][0] === '-' && i === end)) {
-            updatedLines.push(diff[i].slice(1));
+        let changed = '';
+        if (typeof response.data.message === 'string') {
+            // Use a regex that matches code blocks accurately, including those with embedded backticks
+            const codeBlockRegex = /```(?:[a-zA-Z]+)?\n([\s\S]*?)\n```/gm;
+            changed = response.data.message.replace(codeBlockRegex, (match, code) => {
+                return code; // Return the code inside the code block
+            });
+        } else {
+            console.error("response.data.message is not a string:", response.data.message);
+            throw new Error("API response is not in expected string format");
         }
-    }
 
-    return updatedLines.join('\n');
+        return changed;
+    } catch (error) {
+        console.error("Error in applyCustomChanges:", error.message);
+        throw error; // Rethrow the error after logging it
+    }
 }
 
 // FIXME this is unused
@@ -166,7 +168,7 @@ function handleApplySuggestions(panel, service) {
     }
 }
 
-async function handleApplyOneSuggestion(newCode) {
+async function handleApplyOneSuggestion(panel, newCode, id) {
     // Open a file picker dialog to select a file or a folder
     const options = {
         canSelectFiles: true,        // Allow file selection
@@ -201,7 +203,7 @@ async function handleApplyOneSuggestion(newCode) {
                 }).then((saveUri) => {
                     if (saveUri) {
                         // Create the new file with the applied changes
-                        processFile(saveUri.fsPath, '', newCode);
+                        processFile(panel, saveUri.fsPath, '', newCode, id);
                     } else {
                         vscode.window.showWarningMessage('File save cancelled.');
                     }
@@ -215,7 +217,7 @@ async function handleApplyOneSuggestion(newCode) {
                         return;
                     }
 
-                    processFile(selectedPath, data, newCode);
+                    processFile(panel, selectedPath, data, newCode, id);
                 });
             } else {
                 vscode.window.showErrorMessage('Selected path is neither a file nor a directory.');
@@ -227,20 +229,29 @@ async function handleApplyOneSuggestion(newCode) {
 }
 
 // Helper function to process the file
-function processFile(filePath, fileData, newCode) {
+async function processFile(panel, filePath, fileData, newCode, id) {
     let bestFile = { fileName: filePath, fileData: fileData };
+    panel.webview.postMessage({
+        command: 'suggestionApplying',
+        id: id
+    });
 
     // Apply custom changes
-    let updatedCode = applyCustomChanges(bestFile.fileData, newCode);
+    let updatedCode = await applyCustomChanges(bestFile.fileData, newCode);
 
     // Write updated code back to the file
     fs.writeFileSync(bestFile.fileName, updatedCode);
 
     vscode.window.showInformationMessage(`Changes applied to ${path.basename(bestFile.fileName)}`);
+    panel.webview.postMessage({
+        command: 'suggestionApplied',
+        id: id
+    });
 }
 
 module.exports = {
     update_common,
     handleApplySuggestions,
-    handleApplyOneSuggestion
+    handleApplyOneSuggestion,
+    applyCustomChanges
 };
