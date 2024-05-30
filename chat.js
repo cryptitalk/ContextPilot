@@ -53,10 +53,17 @@ async function postDataToAPI(apiEndpoint, headers, body) {
 }
 
 async function initEventStream(panel, endpoint, message, command, chatResponse, chatSession, handleResponseFunc) {
-  let respose = await postDataToAPI(endpoint.replace('streamchat', 'streaminit'), { 'Content-Type': 'application/json' }, message);
+  let response = await postDataToAPI(endpoint.replace('streamchat', 'streaminit'), { 'Content-Type': 'application/json' }, message);
+
+  // Fetch the secret key from the configuration
+  const secretKey = vscode.workspace.getConfiguration().get('secretKey');
+  if (!secretKey) {
+    vscode.window.showErrorMessage('Secret key is not configured. Please add it using the "Add Secret Key" command.');
+    return;
+  }
 
   // Initialize the EventSource with the encoded JSON in the URL query parameter
-  let eventSource = new EventSource(`${endpoint}?session_id=${respose.data.session_id}`);
+  let eventSource = new EventSource(`${endpoint}?session_id=${response.data.session_id}&secret_key=${secretKey}`);
   eventSource.onmessage = function (event) {
     var messageData = JSON.parse(event.data);
     chatResponse += messageData.text;

@@ -1,11 +1,33 @@
 const vscode = require('vscode');
-const { getWebviewContent, handleDelete, handleSelect, handleSaveDefinition, updateWebview, handleRefreshDefinition } = require('./webview');
-const { handleShowContext, handleClearContext } = require('./context');
-const { handleShowSession, handleClearSession } = require('./session');
-const { handleGPTSubmitInput, handleGeminiSubmitInput } = require('./chat');
+const {
+  getWebviewContent,
+  handleDelete,
+  handleSelect,
+  handleSaveDefinition,
+  updateWebview,
+  handleRefreshDefinition,
+} = require('./webview');
+const {
+  handleShowContext,
+  handleClearContext,
+} = require('./context');
+const {
+  handleShowSession,
+  handleClearSession,
+} = require('./session');
+const {
+  handleGPTSubmitInput,
+  handleGeminiSubmitInput,
+} = require('./chat');
 const { handleAddImgContext } = require('./file_ctx');
-const { getRelativeFilePath, executeCommandFromSuggestion } = require('./utils');
-const { handleApplySuggestions, handleApplyOneSuggestion } = require('./diff');
+const {
+  getRelativeFilePath,
+  executeCommandFromSuggestion,
+} = require('./utils');
+const {
+  handleApplySuggestions,
+  handleApplyOneSuggestion,
+} = require('./diff');
 
 let panel;
 let currentPage = 1;
@@ -13,8 +35,26 @@ global.chatSessionGPT = [];
 global.chatSessionGemini = [];
 global.currentChatIndex = {
   chatGpt: 0,
-  gemini: 0
+  gemini: 0,
 };
+
+async function addSecretKey() {
+  const secretKey = await vscode.window.showInputBox({
+    prompt: 'Enter your secret key',
+    ignoreFocusOut: true, // The input box will not be dismissed when focus moves to another part of the editor
+  });
+  if (!secretKey) {
+    vscode.window.showErrorMessage('No secret key provided');
+    return;
+  }
+  try {
+    await vscode.workspace.getConfiguration().update('secretKey', secretKey, vscode.ConfigurationTarget.Global);
+    vscode.window.showInformationMessage('Secret key added successfully');
+  } catch (error) {
+    console.error('Error updating secretKey:', error);
+    vscode.window.showErrorMessage('Failed to add secret key');
+  }
+}
 
 function activate(context) {
   let addDisposable = vscode.commands.registerCommand('extension.addSelectedContext', () => {
@@ -242,8 +282,9 @@ function activate(context) {
   });
 
   let addImgContextDisposable = vscode.commands.registerCommand('extension.addImgContext', handleAddImgContext);
+  let addSecretKeyDisposable = vscode.commands.registerCommand('extension.addSecretKey', addSecretKey);
 
-  context.subscriptions.push(addDisposable, getDisposable, addClipboardDisposable, addImgContextDisposable);
+  context.subscriptions.push(addDisposable, getDisposable, addClipboardDisposable, addImgContextDisposable, addSecretKeyDisposable);
 }
 
 exports.activate = activate;
